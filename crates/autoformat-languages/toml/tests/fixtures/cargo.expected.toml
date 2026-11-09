@@ -1,0 +1,21 @@
+# Package manifest
+[package]
+name = "demo"      # the crate name
+version = "0.1.0"  # semver
+edition = "2021"
+authors = ["Ada <ada@example.com>", "Grace <grace@example.com>"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+indented.key = true
+
+[[bin]]
+name = "demo"
+path = "src/main.rs"
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser"] }
+
+[profile.release]
+lto = true

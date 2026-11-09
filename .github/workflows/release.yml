@@ -1,0 +1,52 @@
+name: Release
+
+# Builds the autoformat binary for every platform and packages one VS Code extension
+# per platform. Runs when a version tag such as v0.1.0 is pushed.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.vscode_target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, rust_target: x86_64-pc-windows-msvc, vscode_target: win32-x64, exe: autoformat.exe }
+          - { os: windows-latest, rust_target: aarch64-pc-windows-msvc, vscode_target: win32-arm64, exe: autoformat.exe }
+          - { os: macos-14, rust_target: x86_64-apple-darwin, vscode_target: darwin-x64, exe: autoformat }
+          - { os: macos-14, rust_target: aarch64-apple-darwin, vscode_target: darwin-arm64, exe: autoformat }
+          - { os: ubuntu-latest, rust_target: x86_64-unknown-linux-musl, vscode_target: linux-x64, exe: autoformat }
+          - { os: ubuntu-24.04-arm, rust_target: aarch64-unknown-linux-musl, vscode_target: linux-arm64, exe: autoformat }
+          - { os: ubuntu-latest, rust_target: x86_64-unknown-linux-musl, vscode_target: alpine-x64, exe: autoformat }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+      - name: Install musl tools
+        if: contains(matrix.rust_target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: cargo build --release --locked -p autoformat-cli --target ${{ matrix.rust_target }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Package the extension
+        shell: bash
+        run: scripts/package-extension.sh ${{ matrix.vscode_target }} target/${{ matrix.rust_target }}/release/${{ matrix.exe }}
+      - name: Archive the command line tool
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.rust_target }}/release/${{ matrix.exe }} dist/
+          cp LICENSE README.md THIRD_PARTY_LICENSES.md dist/
+          tar -czf autoformat-${{ matrix.vscode_target }}.tar.gz -C dist .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: autoformat-${{ matrix.vscode_target }}
+          path: |
+            vscode/extension/*.vsix
+            autoformat-${{ matrix.vscode_target }}.tar.gz

@@ -1,0 +1,16 @@
+[package]
+name = "autoformat-cli"
+description = "The autoformat command line tool."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "autoformat"
+path = "src/main.rs"
+
+[dependencies]
+autoformat-config.workspace = true
+autoformat-core.workspace = true
+autoformat-languages.workspace = true

@@ -1,0 +1,10 @@
+[package]
+name = "autoformat-parser"
+description = "Tree-sitter integration for AutoFormat: parsing, token extraction and structural comparison."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tree-sitter.workspace = true

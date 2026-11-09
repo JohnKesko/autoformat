@@ -1,0 +1,4 @@
+/target
+/scratch
+*.vsix
+.DS_Store

@@ -1,0 +1,88 @@
+{
+  "name": "autoformat",
+  "displayName": "AutoFormat",
+  "description": "One formatter for Rust, TOML, TypeScript, JavaScript, C# and PowerShell. No other tools needed.",
+  "version": "0.1.0",
+  "publisher": "autoformat",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/johnkesko/autoformat"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Formatters"
+  ],
+  "keywords": [
+    "formatter",
+    "rust",
+    "toml",
+    "typescript",
+    "javascript",
+    "csharp",
+    "powershell"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:rust",
+    "onLanguage:toml",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:csharp",
+    "onLanguage:powershell"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "toml",
+        "aliases": [
+          "TOML",
+          "toml"
+        ],
+        "extensions": [
+          ".toml"
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "AutoFormat",
+      "properties": {
+        "autoformat.formatOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Format supported files with AutoFormat every time they are saved."
+        },
+        "autoformat.executablePath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "description": "Path to an autoformat executable to use instead of the one bundled with the extension. Leave empty to use the bundled one."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "autoformat.showOutput",
+        "title": "AutoFormat: Show Output"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test:unit": "npm run compile && node --test out/test/unit.test.js",
+    "test:vscode": "npm run compile && node out/test/runVsCodeTests.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "@types/vscode": "1.90.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.1.0",
+    "typescript": "5.9.3"
+  }
+}

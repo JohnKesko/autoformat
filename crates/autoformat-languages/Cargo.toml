@@ -1,0 +1,19 @@
+[package]
+name = "autoformat-languages"
+description = "The list of AutoFormat language adapters and file type detection."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+autoformat-core.workspace = true
+autoformat-lang-rust.workspace = true
+autoformat-lang-toml.workspace = true
+autoformat-lang-javascript.workspace = true
+autoformat-lang-typescript.workspace = true
+autoformat-lang-csharp.workspace = true
+autoformat-lang-powershell.workspace = true
+
+[dev-dependencies]
+autoformat-lang-powershell.workspace = true

@@ -1,0 +1,7 @@
+# AutoFormat configuration. These are the default values.
+[formatting]
+indent_size = 4
+indent_style = "spaces"
+column_width = 140
+comment_alignment = true
+line_ending = "lf"

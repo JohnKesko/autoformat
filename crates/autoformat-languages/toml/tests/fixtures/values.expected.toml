@@ -1,0 +1,35 @@
+title = "TOML Example"
+literal = 'C:\Users\path'
+multi_basic = """
+  Roses are red
+     Violets are blue"""
+multi_literal = '''
+first line
+   second line
+'''
+integers = [1, 2, 3,
+    4, 5]
+nested = [[1, 2], ["a", "b"]]
+dates = [1979-05-27T07:32:00Z, 1979-05-27, 07:32:00]
+floats = [+1.0, 3.1415, -0.01, 5e+22, inf, nan]
+"quoted key" = 1
+dotted.key.name = "spaces around dots"
+empty_table = {}
+empty_array = []
+
+[servers]
+
+[servers.alpha]
+ip = "10.0.0.1"
+role = "frontend"
+
+[servers.beta]
+ip = "10.0.0.2"
+role = "backend"
+
+[database]
+ports = [
+    8000,
+    8001,  # comment inside array
+    8002,
+]

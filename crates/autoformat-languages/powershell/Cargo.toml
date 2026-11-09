@@ -1,0 +1,12 @@
+[package]
+name = "autoformat-lang-powershell"
+description = "PowerShell language adapter for AutoFormat."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+autoformat-core.workspace = true
+autoformat-parser.workspace = true
+tree-sitter-powershell.workspace = true

@@ -1,0 +1,51 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/autoformat-config",
+    "crates/autoformat-parser",
+    "crates/autoformat-core",
+    "crates/autoformat-languages",
+    "crates/autoformat-languages/rust",
+    "crates/autoformat-languages/toml",
+    "crates/autoformat-languages/javascript",
+    "crates/autoformat-languages/typescript",
+    "crates/autoformat-languages/csharp",
+    "crates/autoformat-languages/powershell",
+    "crates/autoformat-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.90"
+repository = "https://github.com/johnkesko/autoformat"
+authors = ["AutoFormat contributors"]
+
+[workspace.dependencies]
+autoformat-config = { path = "crates/autoformat-config" }
+autoformat-parser = { path = "crates/autoformat-parser" }
+autoformat-core = { path = "crates/autoformat-core" }
+autoformat-languages = { path = "crates/autoformat-languages" }
+autoformat-lang-rust = { path = "crates/autoformat-languages/rust" }
+autoformat-lang-toml = { path = "crates/autoformat-languages/toml" }
+autoformat-lang-javascript = { path = "crates/autoformat-languages/javascript" }
+autoformat-lang-typescript = { path = "crates/autoformat-languages/typescript" }
+autoformat-lang-csharp = { path = "crates/autoformat-languages/csharp" }
+autoformat-lang-powershell = { path = "crates/autoformat-languages/powershell" }
+
+# Third-party crates. All are MIT or MIT/Apache-2.0 licensed (see THIRD_PARTY_LICENSES.md).
+serde = { version = "1.0", features = ["derive"] }
+toml = "1.2"
+tree-sitter = "0.27"
+tree-sitter-rust = "0.24"
+tree-sitter-toml-ng = "0.7"
+tree-sitter-javascript = "0.25"
+tree-sitter-typescript = "0.23"
+tree-sitter-c-sharp = "0.23"
+tree-sitter-powershell = "0.26"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
