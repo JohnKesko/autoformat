@@ -128,8 +128,12 @@ jobs:
           path: release
           pattern: release-*
           merge-multiple: true
-      - name: List the release files
-        run: ls -l release
+      - name: Collect the release files in one folder
+        run: |
+          mkdir -p dist
+          find release -type f \( -name '*.vsix' -o -name '*.tar.gz' -o -name '*.zip' \) -exec mv {} dist/ \;
+          ls -l dist
+          test "$(ls dist/*.vsix | wc -l)" -eq 8
       - name: Check the Marketplace token
         id: token
         run: |
@@ -145,9 +149,9 @@ jobs:
           node-version: 22
       - name: Publish to the VS Code Marketplace
         if: steps.token.outputs.ready == 'true'
-        run: npx --yes @vscode/vsce@4.1.0 publish --skip-duplicate --packagePath release/*.vsix
+        run: npx --yes @vscode/vsce@4.1.0 publish --skip-duplicate --packagePath dist/*.vsix
       - name: Create the tag and GitHub release
         if: steps.token.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "v$VERSION" release/* --target "$GITHUB_SHA" --title "AutoFormat $VERSION" --generate-notes
+        run: gh release create "v$VERSION" dist/* --target "$GITHUB_SHA" --title "AutoFormat $VERSION" --generate-notes
