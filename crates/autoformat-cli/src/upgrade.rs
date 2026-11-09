@@ -367,7 +367,12 @@ fn extract_program(archive: &[u8]) -> Result<Vec<u8>, String> {
             Ok(file) => file,
             Err(_) => return Err("the downloaded archive is damaged".to_string()),
         };
-        if file.name().ends_with("autoformat.exe") {
+        // A file whose name cannot be read is not the program.
+        let is_program = match file.name() {
+            Ok(name) => name.ends_with("autoformat.exe"),
+            Err(_) => false,
+        };
+        if is_program {
             let mut bytes = Vec::new();
             if file.read_to_end(&mut bytes).is_err() {
                 return Err("could not read autoformat.exe from the downloaded archive".to_string());
