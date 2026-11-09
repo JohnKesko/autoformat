@@ -30,7 +30,7 @@ jobs:
       version: ${{ steps.read.outputs.version }}
       release: ${{ steps.read.outputs.release }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - id: read
@@ -60,15 +60,15 @@ jobs:
         include:
           - { os: windows-latest, rust_target: x86_64-pc-windows-msvc, vscode_targets: win32-x64, exe: autoformat.exe, smoke_test: true }
           - { os: windows-11-arm, rust_target: aarch64-pc-windows-msvc, vscode_targets: win32-arm64, exe: autoformat.exe, smoke_test: true }
-          - { os: macos-14, rust_target: aarch64-apple-darwin, vscode_targets: darwin-arm64, exe: autoformat, smoke_test: true }
-          - { os: macos-14, rust_target: x86_64-apple-darwin, vscode_targets: darwin-x64, exe: autoformat, smoke_test: false }
+          - { os: macos-latest, rust_target: aarch64-apple-darwin, vscode_targets: darwin-arm64, exe: autoformat, smoke_test: true }
+          - { os: macos-latest, rust_target: x86_64-apple-darwin, vscode_targets: darwin-x64, exe: autoformat, smoke_test: false }
           - { os: ubuntu-latest, rust_target: x86_64-unknown-linux-musl, vscode_targets: "linux-x64 alpine-x64", exe: autoformat, smoke_test: true }
           - { os: ubuntu-24.04-arm, rust_target: aarch64-unknown-linux-musl, vscode_targets: "linux-arm64 alpine-arm64", exe: autoformat, smoke_test: true }
     env:
       BINARY: target/${{ matrix.rust_target }}/release/${{ matrix.exe }}
       VERSION: ${{ needs.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust_target }}
@@ -84,9 +84,9 @@ jobs:
           "$BINARY" --version
           result=$(printf 'fn main(){let x=1;}\n' | "$BINARY" format --stdin --language rust)
           test "$result" = "fn main() { let x = 1; }"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
       - name: Package the extension
         shell: bash
         run: |
@@ -104,7 +104,7 @@ jobs:
           else
             tar -czf "$name.tar.gz" -C dist .
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.rust_target }}
           if-no-files-found: error
@@ -122,8 +122,8 @@ jobs:
       VERSION: ${{ needs.version.outputs.version }}
       VSCE_PAT: ${{ secrets.VSC_PERSONAL_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: release
           pattern: release-*
@@ -139,10 +139,10 @@ jobs:
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.token.outputs.ready == 'true'
         with:
-          node-version: 20
+          node-version: 22
       - name: Publish to the VS Code Marketplace
         if: steps.token.outputs.ready == 'true'
         run: npx --yes @vscode/vsce@4.1.0 publish --skip-duplicate --packagePath release/*.vsix
