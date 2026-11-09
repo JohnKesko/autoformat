@@ -1,251 +1,261 @@
 # AutoFormat
 
-One small, predictable code formatter for **Rust, TOML, TypeScript, JavaScript, C# and
-PowerShell**. Install one thing, write one configuration file, and every supported file
-is formatted the same way.
+One code formatter with a single configuration file.  
+No other formatters, runtimes or language tools are needed.  
+Uses [Tree-sitter](https://tree-sitter.github.io/) grammars to understand the code.
 
-- Written in Rust. No other formatters, runtimes or language tools are needed.
-- Uses [Tree-sitter](https://tree-sitter.github.io/) grammars to understand the code.
-- Has exactly five settings.
-- Never changes what your code does: every result is parsed again and compared with
-  the original before it is used.
-- Available as a command line tool and as a VS Code extension.
-- MIT licensed.
+- Rust   
+- TOML   
+- TypeScript   
+- JavaScript   
+- C#   
+- PowerShell   
 
-AutoFormat is deliberately not another Prettier or rustfmt. It does not rewrite your code
-into one "correct" shape. It keeps your line breaks and fixes the things that make code
-hard to read.
+## Get Started
 
-## What it does
-
-- Re-indents every line from the structure of the code.
-- Normalizes spaces between tokens: `a+b` becomes `a + b`, `foo (x)` becomes `foo(x)`,
-  `if(x){` becomes `if (x) {`, `[ 1,2 ]` becomes `[1, 2]`, and so on.
-- Removes trailing whitespace, keeps at most one blank line in a row, and removes blank
-  lines right after an opening bracket or before a closing one.
-- Wraps lines longer than `column_width` by putting the contents of a bracket group one
-  item per line:
-
-  ```rust
-  let total = add_numbers(
-      first_value,
-      second_value,
-      third_value
-  );
-  ```
-
-- Aligns trailing comments on consecutive lines:
-
-  ```csharp
-  var first = 10;   // First value
-  var second = 20;  // Second value
-  var third = 30;   // Third value
-  ```
-
-- Applies the configured line ending and ends every file with exactly one newline.
-
-## What it never does
-
-- It never adds, removes or reorders tokens. Commas, semicolons, quotes and parentheses
-  stay exactly as you wrote them. Only whitespace changes.
-- It never changes the inside of strings, raw strings, template strings, here-strings,
-  interpolated strings or regular expressions.
-- It never joins lines you split, and never formats a file that has syntax errors.
-- It never moves a comment to a different place in the code.
-
-## Install
-
-### VS Code
-
-Install the AutoFormat extension (a `.vsix` file for your platform, see *Releasing*). The
-formatter binary is included, so it works right away. Nothing is downloaded.
-
-- **Format Document** (`Shift+Alt+F`) uses AutoFormat for all six languages.
-- **Format on save** is on by default (`autoformat.formatOnSave`).
-- To make AutoFormat the default formatter for a language, add for example
-  `"[rust]": { "editor.defaultFormatter": "JohnK.autoformat" }` to your settings.
-- Errors (such as syntax errors) appear in the status bar and in the *AutoFormat* output
-  channel. The document is left unchanged.
-- `autoformat.executablePath` lets you use your own build of the `autoformat` binary.
-
-### Command line
-
-Download the archive for your platform from a release, or build it yourself:
-
-```bash
-cargo install --path crates/autoformat-cli
-```
-
-## Usage
-
-```bash
-autoformat format src/main.rs
-```
-
-```bash
-autoformat format src/App.tsx config.toml scripts/
-```
-
-Directories are searched for supported files. Hidden folders, `target` and
-`node_modules` are skipped.
-
-```bash
-autoformat format --check src/
-```
-
-`--check` changes nothing and exits with code 1 if any file is not formatted. Use it in CI.
-
-```bash
-autoformat format --stdin --stdin-filepath src/lib.rs < src/lib.rs
-```
-
-`--stdin` reads code from standard input and writes the result to standard output. The
-file path picks the language and is used to find `autoformat.toml`. Use `--language`
-(`rust`, `toml`, `javascript`, `typescript`, `tsx`, `csharp`, `powershell`) when there is
-no file name.
-
-Other commands:
-
-| Command | What it does |
-|---|---|
-| `autoformat config [path]` | Shows the configuration that applies to a path, and which file it came from |
-| `autoformat languages` | Lists the supported languages and file extensions |
-| `autoformat tree <file>` | Prints the syntax tree of a file (useful when writing language rules) |
-
-Exit codes: `0` success, `1` a file could not be formatted (or is not formatted, with
-`--check`), `2` invalid command line or configuration.
-
-## Configuration
-
-Create `autoformat.toml` in your project. AutoFormat uses the closest one found in the
-file's folder or any parent folder. Without a file, the defaults are used.
+1. Install the AutoFormat extension in VS Code.
+2. Create a file called `autoformat.toml` anywhere in your project. It doesn't matter if it's a mono repo or not.
+3. Add the settings you want:
 
 ```toml
+# autoformat.toml
+
 [formatting]
 indent_size = 4
 indent_style = "spaces"
 column_width = 140
 comment_alignment = true
 line_ending = "lf"
+brace_style = "same_line"
 ```
 
-| Option | Values | Default | Meaning |
-|---|---|---|---|
-| `indent_size` | 1 to 16 | `4` | Width of one indentation level |
-| `indent_style` | `"spaces"`, `"tabs"` | `"spaces"` | Indent with spaces or tabs |
-| `column_width` | 20 to 1000 | `140` | Lines longer than this are wrapped when possible |
-| `comment_alignment` | `true`, `false` | `true` | Align trailing comments on consecutive lines. When off, a trailing comment is separated by one space |
-| `line_ending` | `"lf"`, `"crlf"` | `"lf"` | Line ending for the whole file |
+4. Save a file. It is formatted automatically.
 
-All options are optional. Unknown options, unknown tables and invalid values are errors
-with a clear message; they are never ignored.
+All settings are optional. A missing setting uses the value shown above.  
+No `autoformat.toml` at all? Then all the values above are used.  
+Each file uses the closest `autoformat.toml`: in its own folder, or the nearest folder above it.
 
-Notes:
-- Aligned trailing comments start two spaces after the longest line in the block. A block
-  is a run of consecutive lines with the same indentation that all end with a comment.
-- `line_ending` applies to the whole file, including line breaks inside multi-line
-  strings, the same way other formatters handle it.
-- Wrapping only happens at bracket groups such as argument lists, parameter lists,
-  arrays and object literals. A line that cannot be wrapped (a long string, for example)
-  is left as it is.
+## Override
+
+Want one language to look different? Give it its own table, `[formatting.<language>]`.  
+Settings in that table override the ones under `[formatting]`, for that language only.
+
+```toml
+[formatting]
+brace_style = "same_line"    # every language uses same_line ...
+
+[formatting.csharp]
+brace_style = "allman"       # ... except C#, which uses allman
+```
+
+- Languages without their own table use the settings under `[formatting]`.
+- Language names: `rust`, `toml`, `javascript`, `typescript` (also used for `.tsx`), `csharp`, `powershell`.
+- Right now `brace_style` is the only setting you can override.
+
+## What each setting does
+
+```
+# indent_style - Use spaces or tabs for indentation
+indent_style = "spaces"
+```
+
+```
+# indent_size - How deep should indentation be (1 to 16)
+indent_size = 4
+```
+
+```
+# column_width - How many characters a line can be before wrap (20 to 1000)
+column_width = 140
+```
+
+```
+# comment_alignment -  Aligns comments based on the length of the left side.
+# var first = 10;           // This is some comment
+# var averylongline = 20;   // This is another comment
+# var x = 20;               // TODO: Yep, let's implement this
+
+comment_alignment = true (or false)
+```
+
+```
+# line_ending - "lf" (macOS and Linux) or "crlf" (Windows)
+line_ending = "lf"
+```
+
+```
+# brace_style
+# same_line –   Opening brace stays on the same line (K&R).
+# allman    –   Opening brace moves to a new line.
+# gnu       –   Opening brace moves to a new line with an additional indentation level for the brace itself.
+
+brace_style = "same_line"
+```
+
+### Brace style examples
+
+`brace_style` decides where the `{` of a function, class, `if`, loop and so on goes.  
+The three examples below are the same code, formatted with each style.
+
+**`brace_style = "same_line"`** (default)  
+The `{` stays at the end of the line. `else` stays on the same line as `}`.
+
+```csharp
+public void DoSomething() {
+    if (ready) {
+        Start();
+    } else {
+        Wait();
+    }
+}
+```
+
+**`brace_style = "allman"`**  
+The `{` goes on its own line. `else` also goes on its own line.
+
+```csharp
+public void DoSomething()
+{
+    if (ready)
+    {
+        Start();
+    }
+    else
+    {
+        Wait();
+    }
+}
+```
+
+**`brace_style = "gnu"`**  
+Like `allman`, but the `{` and `}` are indented one extra step.
+
+```csharp
+public void DoSomething()
+    {
+        if (ready)
+            {
+                Start();
+            }
+        else
+            {
+                Wait();
+            }
+    }
+```
+
+`catch`, `finally` and the `while` in `do { } while (...)` work the same way as `else`.
+
+Want a different brace style for one language? See [Override](#override).
+
+### Which braces move?
+
+Only the braces of real code blocks: functions, methods, classes, structs, interfaces, enums, and the blocks of `if`, `else`, loops, `switch`, `try`, `catch` and `finally`.
+
+These never move:
+- Object literals, destructuring and arrow functions (JavaScript, TypeScript)
+- Object and collection initializers, lambdas and switch expressions (C#)
+- Macros, struct literals, closures, and `if` / `match` used as a value (Rust)
+- Script blocks like `ForEach-Object { }` and hashtables (PowerShell)
+- Inline tables (TOML has no code blocks, so `brace_style` does nothing there)
+- Anything inside strings and comments
+
+A block written on one line, like `if (x) { return; }`, stays on one line.
+
+## What it never does
+
+- It never adds, removes or reorders anything. Commas, semicolons, quotes and parentheses stay exactly as you wrote them. Only spaces and line breaks change.
+- It never changes the inside of strings or comments.
+- It never joins lines you split. (Only exception: `brace_style = "same_line"` moves a `{` up to the line before it.)
+- It never formats a file that has syntax errors.
+- It never moves a comment to a different place in the code.
+- It never changes what your code does. After formatting, AutoFormat reads the result again and compares it with the original. If anything other than spacing changed, it does less, or nothing.
+
+## Supported editors
+
+| Editor | Status |
+|---|---|
+| VS Code 1.90 or newer | Supported and tested |
+| Editors based on VS Code (Cursor, VSCodium, Windsurf) | Should work if you install the `.vsix` file by hand. Not tested yet, and not in their extension store (Open VSX) yet. |
+| Other editors (Visual Studio, JetBrains, Neovim, Zed, Helix) | No extension. Editors that can run an external formatter can use the command line: `autoformat format --stdin --stdin-filepath <file>`. Not tested yet. |
+
+## VS Code
+
+- The formatter is included in the extension. Nothing is downloaded.
+- Errors (like a syntax error) show up in the status bar. Your file is not changed.
+
+### Format on save
+
+AutoFormat formats every supported file when you save it. This is on by default.
+
+- It does this even if VS Code's own `"editor.formatOnSave"` is `false`.
+- It does not turn other formatters off. If another formatter is also set to format on save, both run, one after the other. To avoid that, remove the other formatter's settings for that language.
+- To turn it off, set `"autoformat.formatOnSave": false` in your VS Code settings.
+
+### Format Document (`Shift+Alt+F`)
+
+Here VS Code decides which formatter to use. If you have more than one formatter for a language, VS Code asks you once which one you want.
+
+To always use AutoFormat, add this to your VS Code settings:
+
+```json
+"[rust][toml][javascript][javascriptreact][typescript][typescriptreact][csharp][powershell]": {
+    "editor.defaultFormatter": "JohnK.autoformat"
+}
+```
+
+## Command line
+
+Download it from a GitHub release, or build it yourself:
+
+```bash
+cargo install --path crates/autoformat-cli
+```
+
+Format files or whole folders:
+
+```bash
+autoformat format src/main.rs config.toml scripts/
+```
+
+Check without changing anything (useful in automated builds):
+
+```bash
+autoformat format --check src/
+```
+
+Other commands:
+
+| Command | What it does |
+|---|---|
+| `autoformat config` | Shows which settings are used and which `autoformat.toml` they come from |
+| `autoformat languages` | Lists the languages and file types |
+| `autoformat format --stdin --stdin-filepath a.rs` | Reads code from input and writes the result to output |
 
 ## Supported languages
 
-| Language | Extensions | Grammar |
-|---|---|---|
-| Rust | `.rs` | tree-sitter-rust 0.24 |
-| TOML | `.toml` | tree-sitter-toml-ng 0.7 |
-| JavaScript | `.js` `.mjs` `.cjs` `.jsx` | tree-sitter-javascript 0.25 |
-| TypeScript | `.ts` `.mts` `.cts` `.tsx` | tree-sitter-typescript 0.23 |
-| C# | `.cs` `.csx` | tree-sitter-c-sharp 0.23 |
-| PowerShell | `.ps1` `.psm1` `.psd1` | tree-sitter-powershell 0.26 |
+| Language | File types |
+|---|---|
+| Rust | `.rs` |
+| TOML | `.toml` |
+| JavaScript | `.js` `.mjs` `.cjs` `.jsx` |
+| TypeScript | `.ts` `.mts` `.cts` `.tsx` |
+| C# | `.cs` `.csx` |
+| PowerShell | `.ps1` `.psm1` `.psd1` |
 
-Language notes and current limitations:
+Good to know:
+- **Rust**: inside macros like `println!(...)` only commas and brackets get spaced. A `{` after a `where` clause stays on its own line.
+- **TOML**: keys inside tables are not indented.
+- **JavaScript / TypeScript**: JSX markup is kept as written, it is only moved left or right as a whole. The braces of `namespace X { }` never move.
+- **C#**: `#if`, `#else` and `#endif` start at the left edge. `#region` lines are indented like code.
+- **PowerShell**: PowerShell cares about spaces, so only safe spacing is changed (after commas, around `=` and `|`, after `if`, inside brackets).
+- Spaces used to line up `=` signs are reduced to one.
 
-- **Rust**: inside macro calls such as `println!(...)` only commas and brackets are
-  spaced, because the grammar cannot see the structure inside a macro. `macro_rules!`
-  bodies keep their spacing exactly.
-- **TOML**: keys inside tables are not indented. Inline tables are never wrapped, because
-  TOML requires them to stay on one line.
-- **JavaScript / TypeScript**: JSX/TSX markup is kept exactly as written; when its first
-  line moves, the following lines move by the same amount (JSX ignores that whitespace).
-  Code inside `{...}` in JSX and inside `${...}` in template strings is not reformatted.
-- **C#**: `#if`, `#else`, `#endif` and similar directives start at column 0; `#region`
-  lines are indented like code. Code where `#if` branches split a block in two cannot be
-  parsed and is not formatted.
-- **PowerShell**: PowerShell is sensitive to spaces (`-Path x` versus `-Pathx`), so only
-  spacing known to be safe is changed: after commas, around `=` and `|`, after keywords
-  like `if`, and inside brackets. Everything else keeps its original spacing.
-- All languages: AutoFormat keeps your line breaks, so two differently broken versions of
-  the same code can stay different. Spaces used to line up `=` signs are reduced to one.
-- Files must be valid UTF-8. Code the grammar cannot parse (including very new syntax a
-  grammar does not know yet) is reported as a syntax error and left unchanged.
+## For developers
 
-## How it stays safe
+### Build and test
 
-Every time a file is formatted, AutoFormat:
-
-1. parses the original with Tree-sitter and refuses to continue on syntax errors,
-2. formats it,
-3. checks that every character other than whitespace is unchanged and in the same order,
-4. parses the result and checks that the syntax tree has exactly the same shape and the
-   same token text as the original (comments may only change their indentation, strings
-   not at all).
-
-If the check fails, it tries again with less ambition: first without line wrapping, then
-changing only indentation. If even that fails, the file is left alone and an error is
-reported. `--verbose` shows when a fallback was used.
-
-## How it works
-
-```
-crates/
-├── autoformat-config      reads, validates and finds autoformat.toml
-├── autoformat-parser      Tree-sitter integration: parsing, tokens, tree comparison
-├── autoformat-core        the language-independent engine
-├── autoformat-languages   the list of languages and file type detection
-│   ├── rust, toml, javascript, typescript, csharp, powershell   (one adapter each)
-└── autoformat-cli         the `autoformat` command
-vscode/extension           the VS Code extension (a thin TypeScript wrapper)
-```
-
-The formatting pipeline:
-
-1. **Parse** the source into a concrete syntax tree (`autoformat-parser`).
-2. **Tokenize**: the leaves of the tree become tokens. Strings, comments and similar
-   nodes are kept whole and printed exactly as written.
-3. **Build the layout** (`autoformat-core`, `build_layout`): a language-independent
-   document of tokens with layout facts: hard line breaks from the source, bracket groups
-   (which indent their contents and offer break opportunities for wrapping), indentation
-   anchors (where enclosing statements start, for continuation lines), and the spacing
-   decision for each token.
-4. **Print** (`print`): compute every line's indentation, wrap long lines at bracket
-   groups, apply spacing, align trailing comments.
-5. **Validate** the result as described above.
-
-The engine contains no language-specific logic. A language adapter is a small crate that
-implements the `LanguageAdapter` trait: it provides the grammar, tables of node kinds
-(comments, strings, containers, wrappable lists...) and a hook for spacing rules that the
-tables cannot express. JavaScript and TypeScript share their rules through
-`autoformat_lang_javascript::ecmascript`.
-
-### Adding a language
-
-1. Check that a Tree-sitter grammar crate exists, is compatible with the `tree-sitter`
-   version in `Cargo.toml` and has a compatible license.
-2. Create `crates/autoformat-languages/<name>/` like the existing adapters and fill in
-   `LanguageRules`. Use `autoformat tree <file>` to see the node kinds.
-3. Register the adapter in `crates/autoformat-languages/src/lib.rs`.
-4. Add fixtures (`tests/fixtures/<name>.input.<ext>`) and run
-   `AUTOFORMAT_BLESS=1 cargo test -p autoformat-lang-<name>` to create the expected files.
-   Review them carefully.
-5. Add the VS Code language id to `vscode/extension/src/languages.ts` and
-   `package.json`.
-
-## Building and testing
-
-Requirements: a Rust toolchain (1.90 or newer) and a C compiler (the grammars are C code).
-For the extension: Node.js 20 or newer.
+You need Rust and a C compiler. For the extension you also need Node.js.
 
 ```bash
 cargo build --release
@@ -255,54 +265,38 @@ cargo build --release
 cargo test --workspace
 ```
 
-The tests cover, for every language: fixture files with expected output, idempotency
-(formatting twice gives the same result) under five different configurations, that only
-whitespace changes, that comments are not lost, that strings are untouched, syntax error
-handling, column width wrapping, and configuration handling. There are also tests that run
-the real `autoformat` binary.
-
 ```bash
-cd vscode/extension && npm ci && npm run test:unit
+cd vscode/extension && npm ci && npm run test:unit && npm run test:vscode
 ```
 
-```bash
-cd vscode/extension && npm run test:vscode
+`test:vscode` opens a separate VS Code window with its own settings, so your own VS Code is not touched.
+
+### How the code is organized
+
+```
+crates/
+├── autoformat-config      reads and checks autoformat.toml
+├── autoformat-parser      reads code with Tree-sitter
+├── autoformat-core        the formatter itself, the same for every language
+├── autoformat-languages   one small folder per language with its rules
+└── autoformat-cli         the autoformat command
+vscode/extension           the VS Code extension
 ```
 
-`test:vscode` starts a separate VS Code instance (with its own settings and extension
-folders) and checks Format Document, format on save, all languages and error handling. It
-needs `cargo build --release` first. It uses the VS Code installed on your machine when it
-can find it (set `VSCODE_EXECUTABLE` to point to one); otherwise it downloads a test copy.
+### Adding a language
 
-## Releasing
+1. Find a Tree-sitter grammar for it with a license that allows use (MIT or similar).
+2. Copy one of the folders in `crates/autoformat-languages/` and fill in the rules. `autoformat tree <file>` shows how the grammar sees the code.
+3. Add it to the list in `crates/autoformat-languages/src/lib.rs`.
+4. Add example files in `tests/fixtures/` and run `AUTOFORMAT_BLESS=1 cargo test` to create the expected results. Check them by hand.
 
-Releases are driven by the version number. The `Build & Release` workflow
-(`.github/workflows/release.yml`) runs on every push to `master`:
+### Release
 
-- It always runs the tests (`.github/workflows/ci.yml`).
-- When the version in `vscode/extension/package.json` has no git tag yet, it builds the
-  binary for Windows (x64, arm64), macOS (x64, arm64) and Linux (x64, arm64, static
-  builds that also run on Alpine), packages one extension per platform, publishes them
-  to the VS Code Marketplace, and then creates the tag and a GitHub release with the
-  extension packages and command line archives.
-
-To release a new version:
-
-1. Raise the version in `vscode/extension/package.json` and in `Cargo.toml`
-   (`workspace.package.version`). The two must match.
+1. Raise the version in `vscode/extension/package.json` and in `Cargo.toml`. They must be the same.
 2. Push to `master`.
 
-Publishing needs a repository secret named `VSC_PERSONAL_TOKEN`: an Azure DevOps
-personal access token with the *Marketplace (Manage)* scope for the `JohnK` publisher.
-Without it the packages are still built, but nothing is published or tagged, so the next
-push tries again.
-
-To build a package by hand for one platform:
-
-```bash
-scripts/package-extension.sh darwin-arm64 target/release/autoformat
-```
+GitHub then builds the formatter for Windows, macOS and Linux, publishes the extension to the VS Code Marketplace, and creates a GitHub release. This needs the repository secret `VSC_PERSONAL_TOKEN`.
 
 ## License
 
-MIT. See `LICENSE`. Third-party licenses are listed in `THIRD_PARTY_LICENSES.md`.
+MIT. See `LICENSE`. Licenses of the libraries we use are in `THIRD_PARTY_LICENSES.md`.
