@@ -13,6 +13,14 @@ Uses [Tree-sitter](https://tree-sitter.github.io/) grammars to understand the co
 - C#   
 - PowerShell   
 
+## Supported IDE's
+
+| Editor | Status |
+|---|---|
+| VS Code 1.90 or newer | Supported and tested |
+| Editors based on VS Code (Cursor, VSCodium, Windsurf) | Should work if you install the `.vsix` file by hand. Not tested yet, and not in their extension store (Open VSX) yet. |
+| Other editors (Visual Studio, JetBrains, Neovim, Zed, Helix) | No extension. Editors that can run an external formatter can use the command line: `autoformat format --stdin --stdin-filepath <file>`. Not tested yet. |
+
 ## Get Started
 
 1. Install the AutoFormat extension in VS Code.
