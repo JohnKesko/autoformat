@@ -4,6 +4,11 @@ name: Tests
 # master.
 on:
   pull_request:
+    # Pull requests that only change documentation do not run the tests.
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "vscode/extension/LICENSE"
   workflow_call:
   workflow_dispatch:
 

@@ -10,6 +10,11 @@ name: Build & Release
 on:
   push:
     branches: [master]
+    # Pushes that only change documentation do not start this workflow.
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "vscode/extension/LICENSE"
   workflow_dispatch:
 
 permissions:

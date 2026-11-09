@@ -299,6 +299,8 @@ vscode/extension           the VS Code extension
 
 GitHub then builds the formatter for Windows, macOS and Linux, publishes the extension to the VS Code Marketplace, and creates a GitHub release. This needs the repository secret `VSC_PERSONAL_TOKEN`.
 
+Pushes that only change `.md` files (like this README) or the license files don't start the workflow. The README on the Marketplace page is updated with the next release.
+
 ## License
 
 MIT. See `LICENSE`. Licenses of the libraries we use are in `THIRD_PARTY_LICENSES.md`.
