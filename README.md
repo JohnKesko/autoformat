@@ -4,6 +4,8 @@ One code formatter with a single configuration file.
 No other formatters, runtimes or language tools are needed.  
 Uses [Tree-sitter](https://tree-sitter.github.io/) grammars to understand the code.
 
+**Supported languages:**
+
 - Rust   
 - TOML   
 - TypeScript   
