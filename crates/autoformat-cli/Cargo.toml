@@ -26,6 +26,9 @@ tar.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 zip.workspace = true
+# zip needs flate2 to unpack .zip files, but does not pick how flate2 does the work.
+# Listing flate2 here gives it its default pure Rust backend, the same as on macOS and Linux.
+flate2.workspace = true
 
 [dev-dependencies]
 flate2.workspace = true
