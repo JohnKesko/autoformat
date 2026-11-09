@@ -39,6 +39,14 @@ pub struct LanguageRules {
     pub extra_brackets: &'static [(&'static str, &'static str)],
     /// Tokens after which a wrapped group may break. Usually just `,`.
     pub separators: &'static [&'static str],
+    /// Code blocks whose opening brace follows `brace_style`, as pairs of
+    /// (kind of the node that holds the braces, kind of that node's parent). `"*"` as the
+    /// parent kind matches any parent. Braces of object literals, initializers, lambdas
+    /// and similar expressions are left out on purpose.
+    pub block_braces: &'static [(&'static str, &'static str)],
+    /// Keywords that continue a statement after a block's closing brace, as pairs of
+    /// (keyword, kind of the keyword's parent node): `("else", "else_clause")`.
+    pub brace_continuations: &'static [(&'static str, &'static str)],
 }
 
 impl LanguageRules {
@@ -49,6 +57,37 @@ impl LanguageRules {
     /// Atomic nodes are kept whole. Comments are always atomic.
     pub fn is_atomic(&self, node: Node) -> bool {
         self.atomic_kinds.contains(&node.kind()) || self.is_comment(node)
+    }
+
+    /// Whether a `{` opens a code block listed in [`LanguageRules::block_braces`].
+    pub fn is_block_brace(&self, open: &TokenContext) -> bool {
+        if !open.is("{") {
+            return false;
+        }
+        let holder = match open.parent() {
+            Some(holder) => holder,
+            None => return false,
+        };
+        let owner_kind = match open.parents.parent(holder) {
+            Some(owner) => owner.kind(),
+            None => "",
+        };
+        for (holder_kind, wanted_owner) in self.block_braces {
+            if *holder_kind == holder.kind() && (*wanted_owner == "*" || *wanted_owner == owner_kind) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Whether a token is listed in [`LanguageRules::brace_continuations`].
+    pub fn is_brace_continuation(&self, token: &TokenContext) -> bool {
+        for (keyword, parent_kind) in self.brace_continuations {
+            if *keyword == token.text && *parent_kind == token.parent_kind {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -76,6 +115,22 @@ pub trait LanguageAdapter: Send + Sync {
     /// Whether the brackets directly inside `list_node` may be wrapped.
     fn is_wrappable(&self, list_node: Node, _open_text: &str) -> bool {
         self.rules().wrappable_kinds.contains(&list_node.kind())
+    }
+
+    /// The name of this language's `[formatting.<name>]` table in `autoformat.toml`.
+    fn config_name(&self) -> &'static str {
+        self.name()
+    }
+
+    /// Whether this `{` opens a code block whose placement follows `brace_style`.
+    /// Return false for braces that must stay where they are.
+    fn is_block_brace(&self, open: &TokenContext) -> bool {
+        self.rules().is_block_brace(open)
+    }
+
+    /// Whether this token continues a statement after a block's closing brace.
+    fn is_brace_continuation(&self, token: &TokenContext) -> bool {
+        self.rules().is_brace_continuation(token)
     }
 
     /// Whether the token must start at column 0 when it begins a line.

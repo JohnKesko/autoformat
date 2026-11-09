@@ -1,34 +1,27 @@
 using System;
 using System.Collections.Generic;
-namespace Demo.Services
-{
+namespace Demo.Services {
     #region Models
     [Serializable]
     public record Person(string Name, int Age);
     #endregion
 
-    public interface IRepository<T> where T : class
-    {
+    public interface IRepository<T> where T : class {
         T? Find(int id);
     }
 
-    public class PersonService : IRepository<Person>, IDisposable
-    {
+    public class PersonService : IRepository<Person>, IDisposable {
         private readonly Dictionary<int, Person> _people = new();
         private int _count;  // number of lookups
 
-        public PersonService() : base()
-        {
+        public PersonService() : base() {
         }
 
-        public Person? Find(int id)
-        {
+        public Person? Find(int id) {
             _count++;
             if (_people.TryGetValue(id, out var person)) {
                 return person;
-            }
-            else
-            {
+            } else {
                 return null;
             }
         }
@@ -39,8 +32,7 @@ namespace Demo.Services
             _ => $"{p.Name,-10} is {p.Age}"
         };
 
-        public void Dispose()
-        {
+        public void Dispose() {
 #if DEBUG
             Console.WriteLine($"lookups: {_count}");
 #endif

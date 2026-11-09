@@ -5,9 +5,12 @@
 //! 2. computes the indentation of every line,
 //! 3. wraps lines that are longer than `column_width` at bracket groups,
 //! 4. decides the spaces between tokens,
-//! 5. aligns trailing comments.
+//! 5. aligns trailing comments,
+//! 6. places the braces of code blocks according to `brace_style`.
 //!
 //! The output always uses `\n` line endings. The engine converts them afterwards.
+
+use autoformat_config::BraceStyle;
 
 use crate::layout::{LayoutDocument, LayoutToken, MultiLine, Spacing};
 
@@ -20,6 +23,8 @@ pub struct PrintOptions {
     pub align_comments: bool,
     /// Whether long lines may be wrapped.
     pub wrap_lines: bool,
+    /// Where block braces go. `None` keeps them where they are.
+    pub brace_style: Option<BraceStyle>,
 }
 
 /// The smallest gap between code and an aligned trailing comment.
@@ -44,11 +49,91 @@ pub fn print(document: &LayoutDocument, options: &PrintOptions) -> String {
         return String::new();
     }
     let mut breaks = initial_line_breaks(document);
+    if let Some(style) = options.brace_style {
+        place_block_braces(document, &mut breaks, style);
+    }
     if options.wrap_lines {
         wrap_long_lines(document, &mut breaks, options);
+        // Wrapping can turn a one-line block into a multi-line one, which then needs its
+        // braces placed as well.
+        if let Some(style) = options.brace_style {
+            place_block_braces(document, &mut breaks, style);
+        }
     }
-    let lines = build_lines(document, &breaks);
+    let lines = build_lines(document, &breaks, options);
     render(document, &lines, options)
+}
+
+/// Moves line breaks around the braces of code blocks:
+/// - `same_line`: the `{` joins the end of the previous line, and `else`, `catch` and
+///   similar keywords join the line of the `}` before them.
+/// - `allman` and `gnu`: the `{` and `}` get lines of their own, and so do `else`,
+///   `catch` and similar keywords. (`gnu` also indents the braces; see `build_lines`.)
+///
+/// A block written on a single line, like `if (x) { return; }`, is left on one line, and
+/// so is the placement of an `else` that follows it.
+/// A brace is never joined to a line that ends with a comment or a preprocessor line.
+fn place_block_braces(document: &LayoutDocument, breaks: &mut [usize], style: BraceStyle) {
+    let tokens = &document.tokens;
+    for group in &document.groups {
+        let open = group.open;
+        let close = group.close;
+        if !tokens[open].block_brace {
+            continue;
+        }
+        if style == BraceStyle::SameLine {
+            if breaks[open] > 0 && can_join_previous_line(tokens, open) {
+                breaks[open] = 0;
+            }
+            continue;
+        }
+        if is_single_line(breaks, open, close) {
+            continue;
+        }
+        if breaks[open] == 0 {
+            breaks[open] = 1;
+        }
+        if open + 1 < close {
+            add_line_break(document, breaks, open + 1, close);
+        }
+        if breaks[close] == 0 {
+            breaks[close] = 1;
+        }
+    }
+
+    for index in 1..tokens.len() {
+        if !tokens[index].brace_continuation {
+            continue;
+        }
+        let group_index = match tokens[index - 1].closes_group {
+            Some(group_index) => group_index,
+            None => continue,
+        };
+        let group = &document.groups[group_index];
+        if is_single_line(breaks, group.open, group.close) {
+            // `if (a) { b(); }` followed by `else ...` on the next line stays as written.
+            continue;
+        }
+        if style == BraceStyle::SameLine {
+            breaks[index] = 0;
+        } else if breaks[index] == 0 {
+            breaks[index] = 1;
+        }
+    }
+}
+
+/// True when no line break separates the brackets of a group.
+fn is_single_line(breaks: &[usize], open: usize, close: usize) -> bool {
+    (open + 1..=close).all(|index| breaks[index] == 0)
+}
+
+/// Whether a token may move up to the end of the previous line.
+fn can_join_previous_line(tokens: &[LayoutToken], index: usize) -> bool {
+    if index == 0 {
+        return false;
+    }
+    let previous = &tokens[index - 1];
+    !previous.is_comment && !previous.column_zero && !tokens[index].column_zero
 }
 
 /// Line breaks before each token: the source line breaks, with at most one blank line in
@@ -69,8 +154,9 @@ fn initial_line_breaks(document: &LayoutDocument) -> Vec<usize> {
 }
 
 /// Splits the tokens into lines and computes the indentation of every line.
-fn build_lines(document: &LayoutDocument, breaks: &[usize]) -> Vec<Line> {
+fn build_lines(document: &LayoutDocument, breaks: &[usize], options: &PrintOptions) -> Vec<Line> {
     let tokens = &document.tokens;
+    let gnu_braces = options.brace_style == Some(BraceStyle::Gnu);
     let mut lines: Vec<Line> = Vec::new();
     for index in 0..tokens.len() {
         if index == 0 || breaks[index] > 0 {
@@ -116,7 +202,13 @@ fn build_lines(document: &LayoutDocument, breaks: &[usize]) -> Vec<Line> {
         } else if token.closes_group.is_some() {
             open_group_levels.last().copied().unwrap_or(0)
         } else {
-            base + continuation_levels(token, line_index, &lines, &line_of_token)
+            let mut level = base + continuation_levels(token, line_index, &lines, &line_of_token);
+            if gnu_braces && token.block_brace {
+                // GNU style: a block's `{` on its own line is indented one extra level.
+                // Its `}` and the block's contents follow from the `{` line.
+                level += 1;
+            }
+            level
         };
         lines[line_index].base = base;
         lines[line_index].indent = indent;
@@ -129,13 +221,40 @@ fn build_lines(document: &LayoutDocument, breaks: &[usize]) -> Vec<Line> {
                 }
             }
             if tokens[index].opens_group.is_some() {
-                open_group_levels.push(current_level);
+                open_group_levels.push(block_level(tokens, index, first, current_level, &lines, &line_of_token));
             }
         }
     }
 
     indent_comment_lines(document, &mut lines);
     lines
+}
+
+/// The level a bracket group's contents are indented from.
+///
+/// A code block whose `{` ends a continuation line is indented from the line where its
+/// declaration starts, not from the continuation line:
+///     public Order(string customer)
+///         : base(customer) {
+///         Total = 0;          <- one level in from `public`, not from `: base`
+///     }
+fn block_level(
+    tokens: &[LayoutToken],
+    index: usize,
+    first_on_line: usize,
+    current_level: usize,
+    lines: &[Line],
+    line_of_token: &[usize],
+) -> usize {
+    let token = &tokens[index];
+    if !token.block_brace || index == first_on_line {
+        return current_level;
+    }
+    // The first anchor is where the statement that owns the block starts.
+    match token.anchors.first() {
+        Some(&owner) => lines[line_of_token[owner]].indent,
+        None => current_level,
+    }
 }
 
 /// Counts the extra indentation for a token that starts a line in the middle of a
@@ -196,7 +315,7 @@ fn indent_comment_lines(document: &LayoutDocument, lines: &mut [Line]) {
 fn wrap_long_lines(document: &LayoutDocument, breaks: &mut [usize], options: &PrintOptions) {
     let mut wrapped = vec![false; document.groups.len()];
     loop {
-        let lines = build_lines(document, breaks);
+        let lines = build_lines(document, breaks, options);
         let mut changed = false;
         for line in &lines {
             let width = match code_width(document, line, options) {
@@ -523,6 +642,7 @@ mod tests {
             column_width: 40,
             align_comments: true,
             wrap_lines: true,
+            brace_style: None,
         }
     }
 

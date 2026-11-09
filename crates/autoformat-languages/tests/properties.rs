@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use autoformat_core::config::{Config, IndentStyle, LineEnding};
+use autoformat_core::config::{BraceStyle, Config, IndentStyle, LineEnding};
 use autoformat_core::{format_source, LanguageAdapter, LanguageRules, Spacing, TokenContext};
 use autoformat_languages::Languages;
 
@@ -47,6 +47,21 @@ fn configurations() -> Vec<Config> {
             line_ending: LineEnding::Crlf,
             ..Config::default()
         },
+        Config {
+            brace_style: BraceStyle::Allman,
+            ..Config::default()
+        },
+        Config {
+            brace_style: BraceStyle::Gnu,
+            indent_size: 2,
+            column_width: 60,
+            ..Config::default()
+        },
+        Config {
+            brace_style: BraceStyle::Allman,
+            language_brace_styles: vec![("csharp".to_string(), BraceStyle::SameLine)],
+            ..Config::default()
+        },
     ]
 }
 
@@ -64,7 +79,19 @@ fn every_fixture_is_idempotent_and_only_whitespace_changes() {
         let source = std::fs::read_to_string(&path).unwrap();
         for config in configurations() {
             let first = match format_source(adapter, &source, &config) {
-                Ok(formatted) => formatted.text,
+                Ok(formatted) => {
+                    if config.column_width >= 60 {
+                        // Brace moves and normal wrapping never need a safety fallback.
+                        assert!(
+                            formatted.notes.is_empty(),
+                            "{} with {:?}: {:?}",
+                            path.display(),
+                            config,
+                            formatted.notes
+                        );
+                    }
+                    formatted.text
+                }
                 Err(error) => panic!("{} with {:?}: {}", path.display(), config, error),
             };
             assert_eq!(

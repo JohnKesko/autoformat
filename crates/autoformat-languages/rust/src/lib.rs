@@ -39,7 +39,7 @@ static RULES: LanguageRules = LanguageRules {
         "label",
         "shebang",
     ],
-    transparent_kinds: &["where_clause"],
+    transparent_kinds: &["where_clause", "else_clause"],
     prefix_kinds: &["attribute_item", "inner_attribute_item"],
     wrappable_kinds: &[
         "arguments",
@@ -63,6 +63,23 @@ static RULES: LanguageRules = LanguageRules {
     index_kinds: &["index_expression"],
     extra_brackets: &[],
     separators: &[","],
+    block_braces: &[
+        ("block", "function_item"),
+        ("declaration_list", "impl_item"),
+        ("declaration_list", "trait_item"),
+        ("declaration_list", "mod_item"),
+        ("declaration_list", "foreign_mod_item"),
+        ("field_declaration_list", "struct_item"),
+        ("field_declaration_list", "union_item"),
+        ("enum_variant_list", "enum_item"),
+        ("block", "if_expression"),
+        ("block", "else_clause"),
+        ("block", "while_expression"),
+        ("block", "loop_expression"),
+        ("block", "for_expression"),
+        ("match_block", "match_expression"),
+    ],
+    brace_continuations: &[("else", "else_clause")],
 };
 
 impl LanguageAdapter for RustLanguage {
@@ -88,6 +105,40 @@ impl LanguageAdapter for RustLanguage {
             return false;
         }
         RULES.wrappable_kinds.contains(&list_node.kind())
+    }
+
+    fn is_block_brace(&self, open: &TokenContext) -> bool {
+        if !RULES.is_block_brace(open) {
+            return false;
+        }
+        let holder = match open.parent() {
+            Some(holder) => holder,
+            None => return false,
+        };
+        // After a `where` clause the `{` stays on its own line, as rustfmt writes it.
+        if let Some(previous) = holder.prev_named_sibling() {
+            if previous.kind() == "where_clause" {
+                return false;
+            }
+        }
+        // `if`, `match` and loops follow the brace style only when they are statements.
+        // Used as values (`let x = if a { 1 } else { 2 };`) their braces stay put.
+        let owner = match open.parents.parent(holder) {
+            Some(owner) => owner,
+            None => return false,
+        };
+        let expression_kinds = [
+            "if_expression",
+            "else_clause",
+            "match_expression",
+            "while_expression",
+            "loop_expression",
+            "for_expression",
+        ];
+        if expression_kinds.contains(&owner.kind()) {
+            return is_statement(open, owner);
+        }
+        true
     }
 
     fn spacing(&self, previous: &TokenContext, next: &TokenContext) -> Option<Spacing> {
@@ -131,6 +182,28 @@ impl LanguageAdapter for RustLanguage {
             return Some(token_tree_spacing(previous, next));
         }
         None
+    }
+}
+
+/// Whether an `if`/`match`/loop expression (or an `else` belonging to one) is used as a
+/// statement: directly in a block, as an expression statement, or at the top level.
+fn is_statement(token: &TokenContext, node: Node) -> bool {
+    // Climb from an `else` branch to the first `if` of the chain.
+    let mut top = node;
+    loop {
+        let parent = match token.parents.parent(top) {
+            Some(parent) => parent,
+            None => return false,
+        };
+        if top.kind() == "else_clause" || parent.kind() == "else_clause" {
+            top = parent;
+        } else {
+            break;
+        }
+    }
+    match token.parents.parent(top) {
+        Some(parent) => ["expression_statement", "block", "source_file"].contains(&parent.kind()),
+        None => false,
     }
 }
 

@@ -21,7 +21,13 @@ static RULES: LanguageRules = LanguageRules {
         "jsx_self_closing_element",
     ],
     // A union written one member per line keeps all members at the same level.
-    transparent_kinds: &["union_type", "intersection_type"],
+    transparent_kinds: &[
+        "union_type",
+        "intersection_type",
+        "else_clause",
+        "catch_clause",
+        "finally_clause",
+    ],
     prefix_kinds: &["decorator"],
     wrappable_kinds: &[
         "arguments",
@@ -42,6 +48,28 @@ static RULES: LanguageRules = LanguageRules {
     index_kinds: &["subscript_expression", "array_type", "lookup_type"],
     extra_brackets: &[],
     separators: &[",", ";"],
+    // Namespaces (`namespace X {`) are not listed: the grammar reads `namespace X` with
+    // the `{` on the next line as different code, so their braces stay where they are.
+    block_braces: &[
+        ("statement_block", "function_declaration"),
+        ("statement_block", "generator_function_declaration"),
+        ("statement_block", "method_definition"),
+        ("class_body", "class_declaration"),
+        ("class_body", "abstract_class_declaration"),
+        ("interface_body", "interface_declaration"),
+        ("enum_body", "enum_declaration"),
+        ("statement_block", "if_statement"),
+        ("statement_block", "else_clause"),
+        ("statement_block", "for_statement"),
+        ("statement_block", "for_in_statement"),
+        ("statement_block", "while_statement"),
+        ("statement_block", "do_statement"),
+        ("statement_block", "try_statement"),
+        ("statement_block", "catch_clause"),
+        ("statement_block", "finally_clause"),
+        ("switch_body", "switch_statement"),
+    ],
+    brace_continuations: ecmascript::BRACE_CONTINUATIONS,
 };
 
 /// Spacing rules for TypeScript, falling back to the shared ECMAScript rules.
@@ -146,6 +174,11 @@ impl Default for TsxLanguage {
 impl LanguageAdapter for TsxLanguage {
     fn name(&self) -> &'static str {
         "tsx"
+    }
+
+    /// `.tsx` files use the `[formatting.typescript]` settings.
+    fn config_name(&self) -> &'static str {
+        "typescript"
     }
 
     fn extensions(&self) -> &'static [&'static str] {

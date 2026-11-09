@@ -52,23 +52,33 @@ pub struct Formatted {
 struct Attempt {
     wrap_lines: bool,
     keep_spacing: bool,
+    place_braces: bool,
     note: &'static str,
 }
 
-const ATTEMPTS: [Attempt; 3] = [
+const ATTEMPTS: [Attempt; 4] = [
     Attempt {
         wrap_lines: true,
         keep_spacing: false,
+        place_braces: true,
         note: "",
     },
     Attempt {
         wrap_lines: false,
         keep_spacing: false,
+        place_braces: true,
         note: "long lines were not wrapped because wrapping would have changed the code",
     },
     Attempt {
         wrap_lines: false,
+        keep_spacing: false,
+        place_braces: false,
+        note: "braces were left where they were because moving them would have changed the code",
+    },
+    Attempt {
+        wrap_lines: false,
         keep_spacing: true,
+        place_braces: false,
         note: "only indentation was changed because spacing changes would have changed the code",
     },
 ];
@@ -96,6 +106,7 @@ pub fn format_source(adapter: &dyn LanguageAdapter, source: &str, config: &Confi
         return Err(FormatError::Syntax(error));
     }
 
+    let brace_style = config.brace_style_for(adapter.config_name());
     let mut problem = String::new();
     let mut notes = Vec::new();
     for attempt in &ATTEMPTS {
@@ -109,6 +120,7 @@ pub fn format_source(adapter: &dyn LanguageAdapter, source: &str, config: &Confi
             column_width: config.column_width,
             align_comments: config.comment_alignment,
             wrap_lines: attempt.wrap_lines,
+            brace_style: if attempt.place_braces { Some(brace_style) } else { None },
         };
         let document = build_layout(&tree, adapter, &build_options);
         let printed = print(&document, &print_options);

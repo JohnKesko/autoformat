@@ -35,8 +35,7 @@ fn parse_arguments(
             result.insert(key.to_string(), value.to_string());
         } else if strict {
             return Err(format!("invalid argument: {}", argument));
-        }
-        else {
+        } else {
             continue;
         }
     }

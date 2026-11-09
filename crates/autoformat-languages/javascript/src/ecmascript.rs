@@ -39,6 +39,38 @@ pub const OUTDENT_TOKENS: &[&str] = &["{", "else", "catch", "finally", ";"];
 
 pub const SPACE_BEFORE_PAREN_KEYWORDS: &[&str] = &["if", "for", "while", "switch", "catch", "with"];
 
+/// Containers that never add indentation. Making the `else`, `catch` and `finally`
+/// clauses transparent keeps a `{` on its own line after them at the statement level.
+pub const TRANSPARENT_KINDS: &[&str] = &["else_clause", "catch_clause", "finally_clause"];
+
+/// Code blocks whose braces follow `brace_style`. Arrow functions, function expressions
+/// and object literals are not listed: their braces stay where they are.
+pub const BLOCK_BRACES: &[(&str, &str)] = &[
+    ("statement_block", "function_declaration"),
+    ("statement_block", "generator_function_declaration"),
+    ("statement_block", "method_definition"),
+    ("class_body", "class_declaration"),
+    ("statement_block", "if_statement"),
+    ("statement_block", "else_clause"),
+    ("statement_block", "for_statement"),
+    ("statement_block", "for_in_statement"),
+    ("statement_block", "while_statement"),
+    ("statement_block", "do_statement"),
+    ("statement_block", "try_statement"),
+    ("statement_block", "catch_clause"),
+    ("statement_block", "finally_clause"),
+    ("statement_block", "with_statement"),
+    ("switch_body", "switch_statement"),
+];
+
+/// Keywords that continue a statement after a block's closing brace.
+pub const BRACE_CONTINUATIONS: &[(&str, &str)] = &[
+    ("else", "else_clause"),
+    ("catch", "catch_clause"),
+    ("finally", "finally_clause"),
+    ("while", "do_statement"),
+];
+
 const GENERATOR_KINDS: &[&str] = &["generator_function_declaration", "generator_function"];
 
 /// Spacing rules shared by JavaScript and TypeScript.

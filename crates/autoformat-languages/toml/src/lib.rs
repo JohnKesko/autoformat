@@ -35,6 +35,9 @@ static RULES: LanguageRules = LanguageRules {
     index_kinds: &[],
     extra_brackets: &[],
     separators: &[","],
+    // TOML has no code blocks: braces are inline tables, which never move.
+    block_braces: &[],
+    brace_continuations: &[],
 };
 
 impl LanguageAdapter for TomlLanguage {

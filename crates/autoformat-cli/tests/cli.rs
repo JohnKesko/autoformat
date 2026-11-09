@@ -24,7 +24,9 @@ fn run_with_stdin(arguments: &[&str], input: &str) -> (i32, String, String) {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    child.stdin.take().unwrap().write_all(input.as_bytes()).unwrap();
+    // The program may exit before reading its input (for example on a configuration
+    // error), so a failed write is expected in some tests.
+    let _ = child.stdin.take().unwrap().write_all(input.as_bytes());
     let output = child.wait_with_output().unwrap();
     (
         output.status.code().unwrap_or(-1),
@@ -86,7 +88,11 @@ fn check_mode_reports_without_writing() {
 #[test]
 fn stdin_mode_uses_the_file_name_and_config() {
     let directory = temp_dir("stdin");
-    std::fs::write(directory.join("autoformat.toml"), "[formatting]\nindent_size = 2\n").unwrap();
+    std::fs::write(
+        directory.join("autoformat.toml"),
+        "[formatting]\nindent_size = 2\n\n[formatting.csharp]\nbrace_style = \"allman\"\n",
+    )
+    .unwrap();
     let path = directory.join("app.cs");
     let (code, stdout, _) = run_with_stdin(
         &["format", "--stdin", "--stdin-filepath", path.to_str().unwrap()],

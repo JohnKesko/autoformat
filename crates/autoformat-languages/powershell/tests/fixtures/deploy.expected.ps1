@@ -34,12 +34,10 @@ function Invoke-Deployment {
         if (-not $WhatIf) {
             Copy-Item -Path $latest.FullName -Destination "\\$($target.Server)\deploy$" -Force
         }
-    }
-    catch [System.IO.IOException] {
+    } catch [System.IO.IOException] {
         Write-Warning "Copy failed: $_"
         throw
-    }
-    finally {
+    } finally {
         Write-Verbose 'Done'
     }
 }

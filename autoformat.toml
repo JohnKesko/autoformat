@@ -5,3 +5,4 @@ indent_style = "spaces"
 column_width = 140
 comment_alignment = true
 line_ending = "lf"
+brace_style = "same_line"

@@ -63,7 +63,9 @@ pub fn build_layout(tree: &SyntaxTree, adapter: &dyn LanguageAdapter, options: &
         let mut token = LayoutToken::new(context.text);
         token.is_comment = context.role == Role::Comment;
         token.line_breaks_before = raw.line_breaks_before;
-        token.had_space_before = raw.space_before;
+        // A line break counts as whitespace: if brace placement joins this token to the
+        // previous line, "keep the spacing" then means one space.
+        token.had_space_before = raw.space_before || raw.line_breaks_before > 0;
         token.spacing = if index == 0 || options.keep_spacing {
             Spacing::Keep
         } else {
@@ -98,6 +100,25 @@ pub fn build_layout(tree: &SyntaxTree, adapter: &dyn LanguageAdapter, options: &
             }
         }
         tokens.push(token);
+    }
+
+    // Code blocks whose braces follow `brace_style`, and the `else` / `catch` keywords
+    // that follow their closing brace.
+    for pair in &pairs {
+        if adapter.is_block_brace(&contexts[pair.open]) {
+            tokens[pair.open].block_brace = true;
+        }
+    }
+    for index in 1..count {
+        let follows_block = match tokens[index - 1].closes_group {
+            Some(group) => tokens[pairs[group].open].block_brace,
+            None => false,
+        };
+        if follows_block && adapter.is_brace_continuation(&contexts[index]) {
+            tokens[index].brace_continuation = true;
+            // On its own line it lines up with the `}` before it.
+            tokens[index].outdent = true;
+        }
     }
 
     let mut groups = Vec::with_capacity(pairs.len());

@@ -64,6 +64,13 @@ pub struct LayoutToken {
     pub outdent: bool,
     /// Always print this token at column 0 when it starts a line (C# `#if`).
     pub column_zero: bool,
+    /// This `{` opens a code block (function body, class body, `if` block...) whose
+    /// placement follows `brace_style`. Decided by the language adapter from the syntax
+    /// tree, never from the text alone.
+    pub block_brace: bool,
+    /// This token (`else`, `catch`, `finally`, the `while` of a do-while) directly
+    /// follows the closing brace of a code block and continues the same statement.
+    pub brace_continuation: bool,
     /// The group this token opens or closes, if it is a bracket.
     pub opens_group: Option<usize>,
     pub closes_group: Option<usize>,
@@ -89,6 +96,8 @@ impl LayoutToken {
             anchors: Vec::new(),
             outdent: false,
             column_zero: false,
+            block_brace: false,
+            brace_continuation: false,
             opens_group: None,
             closes_group: None,
             multi_line: MultiLine::Verbatim,

@@ -31,4 +31,5 @@ pub use printer::{print, PrintOptions};
 pub use spacing::common_spacing;
 
 pub use autoformat_config as config;
+pub use autoformat_config::BraceStyle;
 pub use autoformat_parser as parser;

@@ -47,6 +47,10 @@ static RULES: LanguageRules = LanguageRules {
         "catch_clauses",
         "class_property_definition_list",
         "attribute_list",
+        "elseif_clause",
+        "else_clause",
+        "catch_clause",
+        "finally_clause",
     ],
     prefix_kinds: &["attribute_list"],
     wrappable_kinds: &["argument_list", "param_block", "hash_literal_expression"],
@@ -55,6 +59,33 @@ static RULES: LanguageRules = LanguageRules {
     index_kinds: &[],
     extra_brackets: &[("@(", ")"), ("@{", "}"), ("$(", ")")],
     separators: &[",", ";"],
+    // Script blocks passed to commands (`ForEach-Object { }`) and hashtables are not
+    // listed: moving their braces would change or break the command.
+    block_braces: &[
+        ("function_statement", "*"),
+        ("class_statement", "*"),
+        ("statement_block", "if_statement"),
+        ("statement_block", "elseif_clause"),
+        ("statement_block", "else_clause"),
+        ("statement_block", "foreach_statement"),
+        ("statement_block", "for_statement"),
+        ("statement_block", "while_statement"),
+        ("statement_block", "do_statement"),
+        ("statement_block", "try_statement"),
+        ("statement_block", "catch_clause"),
+        ("statement_block", "finally_clause"),
+        ("statement_block", "trap_statement"),
+        ("statement_block", "named_block"),
+        ("switch_body", "switch_statement"),
+    ],
+    brace_continuations: &[
+        ("else", "else_clause"),
+        ("elseif", "elseif_clause"),
+        ("catch", "catch_clause"),
+        ("finally", "finally_clause"),
+        ("while", "do_statement"),
+        ("until", "do_statement"),
+    ],
 };
 
 /// Keywords followed by a space before `{`.
@@ -95,6 +126,21 @@ impl LanguageAdapter for PowerShellLanguage {
 
     fn spacing(&self, previous: &TokenContext, next: &TokenContext) -> Option<Spacing> {
         Some(powershell_spacing(previous, next))
+    }
+
+    /// PowerShell keywords are case-insensitive: `Else` works like `else`.
+    fn outdent(&self, token: &TokenContext) -> bool {
+        RULES.outdent_tokens.contains(&token.text.to_lowercase().as_str())
+    }
+
+    fn is_brace_continuation(&self, token: &TokenContext) -> bool {
+        let keyword = token.text.to_lowercase();
+        for (wanted, parent_kind) in RULES.brace_continuations {
+            if *wanted == keyword && *parent_kind == token.parent_kind {
+                return true;
+            }
+        }
+        false
     }
 }
 

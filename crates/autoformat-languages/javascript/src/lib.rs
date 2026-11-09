@@ -30,7 +30,7 @@ impl Default for JavaScriptLanguage {
 static RULES: LanguageRules = LanguageRules {
     comment_kinds: ecmascript::COMMENT_KINDS,
     atomic_kinds: ecmascript::ATOMIC_KINDS,
-    transparent_kinds: &[],
+    transparent_kinds: ecmascript::TRANSPARENT_KINDS,
     prefix_kinds: &["decorator"],
     wrappable_kinds: ecmascript::WRAPPABLE_KINDS,
     outdent_tokens: ecmascript::OUTDENT_TOKENS,
@@ -38,6 +38,8 @@ static RULES: LanguageRules = LanguageRules {
     index_kinds: &["subscript_expression"],
     extra_brackets: &[],
     separators: &[","],
+    block_braces: ecmascript::BLOCK_BRACES,
+    brace_continuations: ecmascript::BRACE_CONTINUATIONS,
 };
 
 impl LanguageAdapter for JavaScriptLanguage {
