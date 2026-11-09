@@ -155,6 +155,36 @@ jobs:
       - name: Publish to the VS Code Marketplace
         if: steps.token.outputs.ready == 'true'
         run: npx --yes @vscode/vsce@4.1.0 publish --skip-duplicate --packagePath dist/*.vsix
+      - name: Check every platform can be downloaded
+        if: steps.token.outputs.ready == 'true'
+        run: |
+          # The Marketplace can accept an upload and still not make it available, so
+          # ask for each platform's download the same way VS Code does when installing.
+          publisher=$(node -p "require('./vscode/extension/package.json').publisher")
+          name=$(node -p "require('./vscode/extension/package.json').name")
+          targets=""
+          for file in dist/*.vsix; do
+            target=$(basename "$file" | sed -E "s/^$name-(.*)-$VERSION\.vsix$/\1/")
+            targets="$targets $target"
+          done
+          for attempt in $(seq 1 30); do
+            missing=""
+            for target in $targets; do
+              url="https://marketplace.visualstudio.com/_apis/public/gallery/publishers/$publisher/vsextensions/$name/$VERSION/vspackage?targetPlatform=$target"
+              code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+              if [ "$code" != "200" ]; then
+                missing="$missing $target"
+              fi
+            done
+            if [ -z "$missing" ]; then
+              echo "All platforms can be downloaded:$targets"
+              exit 0
+            fi
+            echo "Not available yet:$missing (check $attempt of 30)"
+            sleep 30
+          done
+          echo "::error::Published, but these platforms cannot be downloaded:$missing. The release was not tagged; run this workflow again to retry."
+          exit 1
       - name: Create the tag and GitHub release
         if: steps.token.outputs.ready == 'true'
         env:
