@@ -4,9 +4,13 @@ name: Build & Release
 # does not have a git tag yet, this workflow also:
 #   1. builds the autoformat binary for every platform,
 #   2. packages one VS Code extension per platform,
-#   3. publishes them to the VS Code Marketplace (needs the VSC_PERSONAL_TOKEN secret),
+#   3. publishes them to the VS Code Marketplace with Trusted Publishing: GitHub proves to
+#      the Marketplace that this workflow is running, so no token is stored anywhere,
 #   4. creates the tag and a GitHub release with the extensions and command line archives.
 # To release: raise the version in vscode/extension/package.json and Cargo.toml, then push.
+#
+# Run this workflow by hand with "check sign-in only" to test the Marketplace sign-in
+# without building or publishing anything.
 on:
   push:
     branches: [master]
@@ -16,6 +20,11 @@ on:
       - "LICENSE"
       - "vscode/extension/LICENSE"
   workflow_dispatch:
+    inputs:
+      check_sign_in_only:
+        description: "Only check that GitHub can sign in to the Marketplace (nothing is built or published)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -25,11 +34,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  sign-in-check:
+    name: Check Marketplace sign-in
+    if: inputs.check_sign_in_only
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Sign in to the Marketplace with Trusted Publishing
+        run: |
+          npm install --no-save --prefix "$RUNNER_TEMP/vsce" @vscode/vsce@4.1.0
+          node -e "
+            const publisher = require('./vscode/extension/package.json').publisher;
+            const oidc = require(process.env.RUNNER_TEMP + '/vsce/node_modules/@vscode/vsce/out/oidc.js');
+            oidc.getOIDCCredential(publisher).then(
+              () => console.log('Signed in to the Marketplace as publisher ' + publisher + '.'),
+              (error) => { console.error(error.message); process.exit(1); }
+            );
+          "
+
   tests:
+    if: ${{ !inputs.check_sign_in_only }}
     uses: ./.github/workflows/ci.yml
 
   version:
     name: Check version
+    if: ${{ !inputs.check_sign_in_only }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.read.outputs.version }}
@@ -123,9 +158,11 @@ jobs:
     needs: [version, build]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the tag and GitHub release
+      id-token: write   # sign in to the Marketplace with Trusted Publishing
     env:
       VERSION: ${{ needs.version.outputs.version }}
-      VSCE_PAT: ${{ secrets.VSC_PERSONAL_TOKEN }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -139,24 +176,12 @@ jobs:
           find release -type f \( -name '*.vsix' -o -name '*.tar.gz' -o -name '*.zip' \) -exec mv {} dist/ \;
           ls -l dist
           test "$(ls dist/*.vsix | wc -l)" -eq 8
-      - name: Check the Marketplace token
-        id: token
-        run: |
-          if [ -z "$VSCE_PAT" ]; then
-            echo "::warning::The VSC_PERSONAL_TOKEN secret is not set, so nothing was published or tagged. Add it and push again (or run this workflow by hand)."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
       - uses: actions/setup-node@v7
-        if: steps.token.outputs.ready == 'true'
         with:
           node-version: 22
       - name: Publish to the VS Code Marketplace
-        if: steps.token.outputs.ready == 'true'
-        run: npx --yes @vscode/vsce@4.1.0 publish --skip-duplicate --packagePath dist/*.vsix
+        run: npx --yes @vscode/vsce@4.1.0 publish --oidc --skip-duplicate --packagePath dist/*.vsix
       - name: Check every platform can be downloaded
-        if: steps.token.outputs.ready == 'true'
         run: |
           # The Marketplace can accept an upload and still not make it available, so
           # ask for each platform's download the same way VS Code does when installing.
@@ -186,7 +211,6 @@ jobs:
           echo "::error::Published, but these platforms cannot be downloaded:$missing. The release was not tagged; run this workflow again to retry."
           exit 1
       - name: Create the tag and GitHub release
-        if: steps.token.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "v$VERSION" dist/* --target "$GITHUB_SHA" --title "AutoFormat $VERSION" --generate-notes

@@ -305,7 +305,11 @@ vscode/extension           the VS Code extension
 1. Raise the version in `vscode/extension/package.json` and in `Cargo.toml`. They must be the same.
 2. Push to `master`.
 
-GitHub then builds the formatter for Windows, macOS and Linux, publishes the extension to the VS Code Marketplace, and creates a GitHub release. This needs the repository secret `VSC_PERSONAL_TOKEN`.
+GitHub then builds the formatter for Windows, macOS and Linux, publishes the extension to the VS Code Marketplace, and creates a GitHub release.
+
+Publishing uses Trusted Publishing: the Marketplace trusts the workflow `release.yml` in this repository, so no token is stored anywhere. This is set up on the publisher page under **Trusted Publishing**. To test the sign-in without publishing anything, run the **Build & Release** workflow by hand on GitHub with **check sign-in only** ticked.
+
+After publishing, the workflow waits until every platform can be downloaded. It can still take a few minutes before VS Code finds the new version.
 
 Pushes that only change `.md` files (like this README) or the license files don't start the workflow. The README on the Marketplace page is updated with the next release.
 
