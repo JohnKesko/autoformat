@@ -19,7 +19,11 @@ fn format(extension: &str, source: &str, config: &Config) -> String {
     let adapter = languages.by_extension(extension).unwrap();
     match format_source(adapter, source, config) {
         Ok(formatted) => {
-            assert!(formatted.notes.is_empty(), "a fallback was used: {:?}", formatted.notes);
+            assert!(
+                formatted.notes.is_empty(),
+                "a fallback was used: {:?}",
+                formatted.notes
+            );
             formatted.text
         }
         Err(error) => panic!("{}\n--- source ---\n{}", error, source),
@@ -283,7 +287,11 @@ fn csharp_gnu_indents_braces_one_level() {
     check_with("cs", &gnu_with_two_spaces(), CSHARP_SAME_LINE, CSHARP_GNU);
     check_with("cs", &gnu_with_two_spaces(), CSHARP_ALLMAN, CSHARP_GNU);
     // With the default indent_size 4 the extra level is 4 spaces.
-    let four = format("cs", "void F() {\n    Run();\n}\n", &config(BraceStyle::Gnu));
+    let four = format(
+        "cs",
+        "void F() {\n    Run();\n}\n",
+        &config(BraceStyle::Gnu),
+    );
     assert_eq!(four, "void F()\n    {\n        Run();\n    }\n");
 }
 
@@ -322,8 +330,10 @@ class A {
 
 #[test]
 fn csharp_single_line_blocks_stay_on_one_line() {
-    let source = "class A {\n    void F() { Run(); }\n    int G() { return 1; }\n    void Empty() { }\n}\n";
-    let allman = "class A\n{\n    void F() { Run(); }\n    int G() { return 1; }\n    void Empty() {}\n}\n";
+    let source =
+        "class A {\n    void F() { Run(); }\n    int G() { return 1; }\n    void Empty() { }\n}\n";
+    let allman =
+        "class A\n{\n    void F() { Run(); }\n    int G() { return 1; }\n    void Empty() {}\n}\n";
     check("cs", BraceStyle::Allman, source, allman);
     check(
         "cs",
@@ -336,7 +346,8 @@ fn csharp_single_line_blocks_stay_on_one_line() {
 #[test]
 fn csharp_comments_around_braces() {
     // A comment between the header and the `{` keeps the brace on its own line.
-    let source = "void F()  // explains F\n{\n    Run();\n}\n\nvoid G()\n// explains G\n{\n    Run();\n}\n";
+    let source =
+        "void F()  // explains F\n{\n    Run();\n}\n\nvoid G()\n// explains G\n{\n    Run();\n}\n";
     check("cs", BraceStyle::SameLine, source, source);
 
     // A comment after `{` stays with the brace.
@@ -354,12 +365,12 @@ fn csharp_comment_alignment_after_brace_moves() {
 
 #[test]
 fn csharp_multi_line_declarations() {
+    // The declaration continues on a second line (`: base(...)`), so the `{` joins that
+    // line in same_line style, and the body is indented from the declaration.
     let allman = "\
 class Order : Base
 {
-    public Order(
-        string customer,
-        decimal total)
+    public Order(string customer, decimal total)
         : base(customer)
     {
         Total = total;
@@ -368,9 +379,7 @@ class Order : Base
 ";
     let same_line = "\
 class Order : Base {
-    public Order(
-        string customer,
-        decimal total)
+    public Order(string customer, decimal total)
         : base(customer) {
         Total = total;
     }
@@ -393,15 +402,15 @@ fn csharp_brace_moves_work_with_column_width() {
     let expected = "void Compute(\n    int first,\n    int second\n) {\n    Run();\n}\n";
     check_with("cs", &narrow, source, expected);
 
-    // Wrapping a one-line block makes it a multi-line block; Allman then moves its `{`.
+    // Lists in braces are never wrapped (so that changing column_width can always be
+    // undone), and a one-line block keeps its braces where they are.
     let narrow_allman = Config {
         brace_style: BraceStyle::Allman,
         column_width: 40,
         ..Config::default()
     };
     let source = "enum Colors { Red, Green, Blue, Cyan, Magenta, Yellow }\n";
-    let expected = "enum Colors\n{\n    Red,\n    Green,\n    Blue,\n    Cyan,\n    Magenta,\n    Yellow\n}\n";
-    check_with("cs", &narrow_allman, source, expected);
+    check_with("cs", &narrow_allman, source, source);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -545,7 +554,10 @@ type Point = {
 #[test]
 fn typescript_namespaces_keep_their_braces() {
     // `namespace X` with `{` on the next line means something else to the grammar.
-    check_unchanged_in_every_style("ts", "namespace Geometry {\n    export const unit = 1;\n}\n");
+    check_unchanged_in_every_style(
+        "ts",
+        "namespace Geometry {\n    export const unit = 1;\n}\n",
+    );
 }
 
 #[test]
@@ -689,7 +701,8 @@ fn main() {
 
 #[test]
 fn rust_brace_after_where_clause_stays_on_its_own_line() {
-    let source = "fn show<T>(value: T)\nwhere\n    T: Display,\n{\n    println!(\"{}\", value);\n}\n";
+    let source =
+        "fn show<T>(value: T)\nwhere\n    T: Display,\n{\n    println!(\"{}\", value);\n}\n";
     check_unchanged_in_every_style("rs", source);
 }
 
@@ -756,8 +769,18 @@ function Get-Size
 
 #[test]
 fn powershell_converts_between_styles() {
-    check("ps1", BraceStyle::Allman, POWERSHELL_SAME_LINE, POWERSHELL_ALLMAN);
-    check("ps1", BraceStyle::SameLine, POWERSHELL_ALLMAN, POWERSHELL_SAME_LINE);
+    check(
+        "ps1",
+        BraceStyle::Allman,
+        POWERSHELL_SAME_LINE,
+        POWERSHELL_ALLMAN,
+    );
+    check(
+        "ps1",
+        BraceStyle::SameLine,
+        POWERSHELL_ALLMAN,
+        POWERSHELL_SAME_LINE,
+    );
     let gnu = format("ps1", POWERSHELL_SAME_LINE, &config(BraceStyle::Gnu));
     check("ps1", BraceStyle::SameLine, &gnu, POWERSHELL_SAME_LINE);
 }
@@ -819,7 +842,10 @@ fn language_override_beats_the_global_style() {
 
 #[test]
 fn tsx_files_use_the_typescript_override() {
-    let config = autoformat_core::config::parse_config("[formatting.typescript]\nbrace_style = \"allman\"\n").unwrap();
+    let config = autoformat_core::config::parse_config(
+        "[formatting.typescript]\nbrace_style = \"allman\"\n",
+    )
+    .unwrap();
     check_with(
         "tsx",
         &config,

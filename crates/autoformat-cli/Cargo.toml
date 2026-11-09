@@ -14,3 +14,19 @@ path = "src/main.rs"
 autoformat-config.workspace = true
 autoformat-core.workspace = true
 autoformat-languages.workspace = true
+
+# `autoformat upgrade` only.
+ureq.workspace = true
+sha2.workspace = true
+self-replace.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+flate2.workspace = true
+tar.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+zip.workspace = true
+
+[dev-dependencies]
+flate2.workspace = true
+tar.workspace = true

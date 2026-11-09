@@ -6,11 +6,15 @@ name: Build & Release
 #   2. packages one VS Code extension per platform,
 #   3. publishes them to the VS Code Marketplace with Trusted Publishing: GitHub proves to
 #      the Marketplace that this workflow is running, so no token is stored anywhere,
-#   4. creates the tag and a GitHub release with the extensions and command line archives.
+#   4. creates the tag and a GitHub release with the extensions, the command line archives
+#      and SHA256SUMS.txt,
+#   5. installs the command line tool with install.sh / install.ps1 on Linux, macOS and
+#      Windows, straight from that release, to prove the install scripts work.
 # To release: raise the version in vscode/extension/package.json and Cargo.toml, then push.
 #
 # Run this workflow by hand with "check sign-in only" to test the Marketplace sign-in
-# without building or publishing anything.
+# without building or publishing anything, or with "build only" to build and package
+# every platform without publishing.
 on:
   push:
     branches: [master]
@@ -23,6 +27,10 @@ on:
     inputs:
       check_sign_in_only:
         description: "Only check that GitHub can sign in to the Marketplace (nothing is built or published)"
+        type: boolean
+        default: false
+      build_only:
+        description: "Build and package every platform, but publish nothing"
         type: boolean
         default: false
 
@@ -92,7 +100,7 @@ jobs:
   build:
     name: Build ${{ matrix.rust_target }}
     needs: [tests, version]
-    if: needs.version.outputs.release == 'true'
+    if: needs.version.outputs.release == 'true' || inputs.build_only
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -138,7 +146,8 @@ jobs:
         run: |
           mkdir -p dist
           cp "$BINARY" LICENSE README.md THIRD_PARTY_LICENSES.md dist/
-          name="autoformat-$VERSION-${{ matrix.rust_target }}"
+          # No version in the name, so .../releases/latest/download/<name> always works.
+          name="autoformat-${{ matrix.rust_target }}"
           if [[ "${{ matrix.exe }}" == *.exe ]]; then
             (cd dist && 7z a "../$name.zip" .)
           else
@@ -156,7 +165,7 @@ jobs:
   publish:
     name: Publish v${{ needs.version.outputs.version }}
     needs: [version, build]
-    if: needs.version.outputs.release == 'true'
+    if: needs.version.outputs.release == 'true' && !inputs.build_only
     runs-on: ubuntu-latest
     permissions:
       contents: write   # create the tag and GitHub release
@@ -174,8 +183,11 @@ jobs:
         run: |
           mkdir -p dist
           find release -type f \( -name '*.vsix' -o -name '*.tar.gz' -o -name '*.zip' \) -exec mv {} dist/ \;
-          ls -l dist
           test "$(ls dist/*.vsix | wc -l)" -eq 8
+          test "$(ls dist/autoformat-*.tar.gz dist/autoformat-*.zip | wc -l)" -eq 6
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+          ls -l dist
+          cat dist/SHA256SUMS.txt
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -214,3 +226,36 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "v$VERSION" dist/* --target "$GITHUB_SHA" --title "AutoFormat $VERSION" --generate-notes
+
+  install-test:
+    name: Install on ${{ matrix.os }}
+    needs: [version, publish]
+    if: needs.version.outputs.release == 'true' && !inputs.build_only
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install with install.sh
+        if: runner.os != 'Windows'
+        run: |
+          AUTOFORMAT_INSTALL_DIR="$RUNNER_TEMP/bin" sh install.sh
+          "$RUNNER_TEMP/bin/autoformat" --version | grep -x "autoformat $VERSION"
+          "$RUNNER_TEMP/bin/autoformat" upgrade --check | tee upgrade.txt
+          grep "is up to date" upgrade.txt
+      - name: Install with install.ps1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:AUTOFORMAT_INSTALL_DIR = "$env:RUNNER_TEMP\bin"
+          $env:AUTOFORMAT_NO_PATH_UPDATE = "1"
+          ./install.ps1
+          $installed = & "$env:RUNNER_TEMP\bin\autoformat.exe" --version
+          if ($installed -ne "autoformat $env:VERSION") { throw "installed $installed, expected autoformat $env:VERSION" }
+          $check = & "$env:RUNNER_TEMP\bin\autoformat.exe" upgrade --check
+          $check
+          if (-not ($check -match "is up to date")) { throw "upgrade --check did not report up to date" }

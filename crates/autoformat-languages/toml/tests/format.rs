@@ -41,11 +41,22 @@ fn inline_tables_are_never_wrapped() {
         ..Config::default()
     };
     let source = "point = { x = 1000000, y = 2000000, z = 3000000 }\n";
-    assert_eq!(format_or_panic(&TomlLanguage::new(), source, &config), source);
+    assert_eq!(
+        format_or_panic(&TomlLanguage::new(), source, &config),
+        source
+    );
 }
 
 #[test]
 fn invalid_toml_is_rejected() {
-    let result = format_source(&TomlLanguage::new(), "[table\nkey = 1\n", &Config::default());
-    assert!(matches!(result, Err(FormatError::Syntax(_))), "{:?}", result);
+    let result = format_source(
+        &TomlLanguage::new(),
+        "[table\nkey = 1\n",
+        &Config::default(),
+    );
+    assert!(
+        matches!(result, Err(FormatError::Syntax(_))),
+        "{:?}",
+        result
+    );
 }

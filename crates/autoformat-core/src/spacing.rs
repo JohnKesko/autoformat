@@ -9,7 +9,11 @@ use crate::context::{Role, TokenContext};
 use crate::layout::Spacing;
 
 /// Decides the spacing between two tokens that end up on the same line.
-pub fn common_spacing(previous: &TokenContext, next: &TokenContext, rules: &LanguageRules) -> Spacing {
+pub fn common_spacing(
+    previous: &TokenContext,
+    next: &TokenContext,
+    rules: &LanguageRules,
+) -> Spacing {
     use Role::*;
 
     // Comments and unknown text keep their spacing.

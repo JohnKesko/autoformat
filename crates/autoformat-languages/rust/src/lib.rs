@@ -162,10 +162,16 @@ impl LanguageAdapter for RustLanguage {
         if previous.is("|") && next.is("|") && next.parent_kind == "closure_parameters" {
             return Some(Spacing::NoSpace);
         }
-        if previous.is("|") && previous.parent_kind == "closure_parameters" && is_last_child(previous) {
+        if previous.is("|")
+            && previous.parent_kind == "closure_parameters"
+            && is_last_child(previous)
+        {
             return Some(Spacing::Space);
         }
-        if next.is("|") && next.parent_kind == "closure_parameters" && previous.role == Role::Keyword {
+        if next.is("|")
+            && next.parent_kind == "closure_parameters"
+            && previous.role == Role::Keyword
+        {
             return Some(Spacing::Space);
         }
 

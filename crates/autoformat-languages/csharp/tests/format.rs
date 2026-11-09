@@ -22,19 +22,28 @@ fn allman() -> Config {
 #[test]
 fn special_strings_are_untouched() {
     let source = "class A\n{\n    string a = $\"{x,5}  {y:N2}\";\n    string b = @\"C:\\path  \"\"q\"\"\";\n    string c = \"\"\"\n      raw  text\n      \"\"\";\n}\n";
-    assert_eq!(format_or_panic(&CSharpLanguage::new(), source, &allman()), source);
+    assert_eq!(
+        format_or_panic(&CSharpLanguage::new(), source, &allman()),
+        source
+    );
 }
 
 #[test]
 fn preprocessor_directives_stay_at_column_zero() {
     let source = "class A\n{\n    void M()\n    {\n        #if DEBUG\n        Log();\n        #endif\n    }\n}\n";
     let expected = "class A\n{\n    void M()\n    {\n#if DEBUG\n        Log();\n#endif\n    }\n}\n";
-    assert_eq!(format_or_panic(&CSharpLanguage::new(), source, &allman()), expected);
+    assert_eq!(
+        format_or_panic(&CSharpLanguage::new(), source, &allman()),
+        expected
+    );
 }
 
 #[test]
 fn regions_are_indented_like_code() {
     let source = "class A\n{\n#region Fields\nint x;\n#endregion\n}\n";
     let expected = "class A\n{\n    #region Fields\n    int x;\n    #endregion\n}\n";
-    assert_eq!(format_or_panic(&CSharpLanguage::new(), source, &allman()), expected);
+    assert_eq!(
+        format_or_panic(&CSharpLanguage::new(), source, &allman()),
+        expected
+    );
 }

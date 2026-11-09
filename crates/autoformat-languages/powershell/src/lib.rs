@@ -53,7 +53,8 @@ static RULES: LanguageRules = LanguageRules {
         "finally_clause",
     ],
     prefix_kinds: &["attribute_list"],
-    wrappable_kinds: &["argument_list", "param_block", "hash_literal_expression"],
+    // `param( ... )` blocks are left as written: one parameter per line is the usual style.
+    wrappable_kinds: &["argument_list", "hash_literal_expression"],
     outdent_tokens: &["{", "else", "elseif", "catch", "finally"],
     space_before_paren_keywords: &["if", "elseif", "foreach", "for", "while", "switch", "until"],
     index_kinds: &[],
@@ -102,7 +103,11 @@ const BLOCK_KEYWORDS: &[&str] = &[
 ];
 
 /// Parents of an `=` that is safe to surround with spaces.
-const ASSIGNMENT_PARENTS: &[&str] = &["assignement_operator", "hash_entry", "script_parameter_default"];
+const ASSIGNMENT_PARENTS: &[&str] = &[
+    "assignement_operator",
+    "hash_entry",
+    "script_parameter_default",
+];
 
 /// Keywords that follow a closing `}` on the same line.
 const AFTER_BRACE_KEYWORDS: &[&str] = &["else", "elseif", "catch", "finally", "while", "until"];
@@ -130,7 +135,9 @@ impl LanguageAdapter for PowerShellLanguage {
 
     /// PowerShell keywords are case-insensitive: `Else` works like `else`.
     fn outdent(&self, token: &TokenContext) -> bool {
-        RULES.outdent_tokens.contains(&token.text.to_lowercase().as_str())
+        RULES
+            .outdent_tokens
+            .contains(&token.text.to_lowercase().as_str())
     }
 
     fn is_brace_continuation(&self, token: &TokenContext) -> bool {
@@ -146,7 +153,9 @@ impl LanguageAdapter for PowerShellLanguage {
 
 /// PowerShell spacing: keep the source spacing unless a rule below is known to be safe.
 fn powershell_spacing(previous: &TokenContext, next: &TokenContext) -> Spacing {
-    if matches!(previous.role, Role::Comment | Role::Gap) || matches!(next.role, Role::Comment | Role::Gap) {
+    if matches!(previous.role, Role::Comment | Role::Gap)
+        || matches!(next.role, Role::Comment | Role::Gap)
+    {
         return Spacing::Keep;
     }
 
@@ -167,7 +176,8 @@ fn powershell_spacing(previous: &TokenContext, next: &TokenContext) -> Spacing {
     {
         return Spacing::Space;
     }
-    if next.parent_kind == "assignement_operator" || previous.parent_kind == "assignement_operator" {
+    if next.parent_kind == "assignement_operator" || previous.parent_kind == "assignement_operator"
+    {
         // `+=`, `-=` and friends.
         return Spacing::Space;
     }
@@ -210,8 +220,8 @@ fn powershell_spacing(previous: &TokenContext, next: &TokenContext) -> Spacing {
 
     // `) {`, `else {`, `function Name {`, `try {`
     if next.role == Role::Open && next.is("{") {
-        let after_keyword =
-            previous.role == Role::Keyword && BLOCK_KEYWORDS.contains(&previous.text.to_lowercase().as_str());
+        let after_keyword = previous.role == Role::Keyword
+            && BLOCK_KEYWORDS.contains(&previous.text.to_lowercase().as_str());
         if previous.is(")") || after_keyword || previous.kind == "function_name" {
             return Spacing::Space;
         }
@@ -223,8 +233,10 @@ fn powershell_spacing(previous: &TokenContext, next: &TokenContext) -> Spacing {
     }
 
     // `[Math]::Round(1)`, `$x.Name`
-    let is_member_operator = (next.is("::") || next.is(".")) && next.node.map(|node| !node.is_named()).unwrap_or(false);
-    let after_value = previous.role == Role::Close || previous.kind == "variable" || previous.role == Role::Word;
+    let is_member_operator =
+        (next.is("::") || next.is(".")) && next.node.map(|node| !node.is_named()).unwrap_or(false);
+    let after_value =
+        previous.role == Role::Close || previous.kind == "variable" || previous.role == Role::Word;
     if is_member_operator && after_value {
         return Spacing::NoSpace;
     }

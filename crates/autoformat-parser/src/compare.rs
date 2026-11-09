@@ -56,13 +56,21 @@ impl Checker<'_> {
             if (self.text_matches)(left, left_text, right_text) {
                 return Ok(());
             }
-            return Err(format!("the text of `{}` on line {} changed", left.kind(), line));
+            return Err(format!(
+                "the text of `{}` on line {} changed",
+                left.kind(),
+                line
+            ));
         }
 
         let left_children = children(self.original, left);
         let right_children = children(self.formatted, right);
         if left_children.len() != right_children.len() {
-            return Err(format!("`{}` on line {} changed its structure", left.kind(), line));
+            return Err(format!(
+                "`{}` on line {} changed its structure",
+                left.kind(),
+                line
+            ));
         }
         for (left_child, right_child) in left_children.into_iter().zip(right_children) {
             self.compare(left_child, right_child)?;

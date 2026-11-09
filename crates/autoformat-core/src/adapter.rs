@@ -73,7 +73,9 @@ impl LanguageRules {
             None => "",
         };
         for (holder_kind, wanted_owner) in self.block_braces {
-            if *holder_kind == holder.kind() && (*wanted_owner == "*" || *wanted_owner == owner_kind) {
+            if *holder_kind == holder.kind()
+                && (*wanted_owner == "*" || *wanted_owner == owner_kind)
+            {
                 return true;
             }
         }

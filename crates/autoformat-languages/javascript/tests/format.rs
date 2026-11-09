@@ -24,7 +24,8 @@ fn template_strings_and_regexes_are_untouched() {
 fn lines_without_semicolons_are_kept_apart() {
     // Joining these lines would change the program (automatic semicolon insertion).
     let source = "function f() {\nlet a = b\n;(c || d).run()\nreturn\nvalue\n}\n";
-    let expected = "function f() {\n    let a = b\n    ; (c || d).run()\n    return\n    value\n}\n";
+    let expected =
+        "function f() {\n    let a = b\n    ; (c || d).run()\n    return\n    value\n}\n";
     assert_eq!(
         format_or_panic(&JavaScriptLanguage::new(), source, &Config::default()),
         expected
@@ -47,6 +48,10 @@ fn long_calls_are_wrapped() {
         ..Config::default()
     };
     let source = "const result = compute(firstArgument, secondArgument, thirdArgument);\n";
-    let expected = "const result = compute(\n    firstArgument,\n    secondArgument,\n    thirdArgument\n);\n";
-    assert_eq!(format_or_panic(&JavaScriptLanguage::new(), source, &config), expected);
+    let expected =
+        "const result = compute(\n    firstArgument,\n    secondArgument,\n    thirdArgument\n);\n";
+    assert_eq!(
+        format_or_panic(&JavaScriptLanguage::new(), source, &config),
+        expected
+    );
 }

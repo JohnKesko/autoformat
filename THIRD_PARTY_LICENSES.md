@@ -43,6 +43,24 @@ The list was produced from `cargo metadata` (normal and build dependencies of
 | proc-macro2, quote, syn (build only) | 1.0.107 / 1.0.47 / 3.0.10 | MIT OR Apache-2.0 | https://github.com/dtolnay |
 | unicode-ident (build only) | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 | https://github.com/dtolnay/unicode-ident |
 
+## Only used by `autoformat upgrade`
+
+| Crate | License | Source |
+|---|---|---|
+| ureq (HTTPS downloads) | MIT OR Apache-2.0 | https://github.com/algesten/ureq |
+| rustls, rustls-pki-types, rustls-webpki | Apache-2.0 OR ISC OR MIT | https://github.com/rustls/rustls |
+| ring (cryptography used by rustls) | Apache-2.0 AND ISC | https://github.com/briansmith/ring |
+| webpki-roots (trusted certificate list) | CDLA-Permissive-2.0 | https://github.com/rustls/webpki-roots |
+| sha2 (checksums) | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
+| flate2, tar (unpacking .tar.gz, macOS and Linux) | MIT OR Apache-2.0 | https://github.com/rust-lang/flate2-rs, https://github.com/alexcrichton/tar-rs |
+| zip (unpacking .zip, Windows) | MIT | https://github.com/zip-rs/zip2 |
+| self-replace (replacing the running program) | Apache-2.0 | https://github.com/mitsuhiko/self-replace |
+
+These crates also pull in small helper crates. All of them use permissive licenses that
+are compatible with MIT: MIT, Apache-2.0, ISC, BSD-3-Clause, Zlib, 0BSD, CC0-1.0 or
+CDLA-Permissive-2.0 (where a crate offers a choice, MIT or Apache-2.0 is used). Run
+`cargo metadata` for the complete list.
+
 ## VS Code extension
 
 The extension has no runtime npm dependencies. Its development tools (TypeScript,

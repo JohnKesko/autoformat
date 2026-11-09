@@ -90,7 +90,11 @@ const ATTEMPTS: [Attempt; 4] = [
 /// 2. build the layout and print it,
 /// 3. parse the result and compare it with the original tree,
 /// 4. if they differ, retry with fewer changes; if nothing is safe, return an error.
-pub fn format_source(adapter: &dyn LanguageAdapter, source: &str, config: &Config) -> Result<Formatted, FormatError> {
+pub fn format_source(
+    adapter: &dyn LanguageAdapter,
+    source: &str,
+    config: &Config,
+) -> Result<Formatted, FormatError> {
     let has_bom = source.starts_with('\u{feff}');
     let without_bom = source.strip_prefix('\u{feff}').unwrap_or(source);
     let normalized = without_bom.replace("\r\n", "\n");
@@ -101,7 +105,10 @@ pub fn format_source(adapter: &dyn LanguageAdapter, source: &str, config: &Confi
         });
     }
 
-    let tree = adapter.grammar().parse(&normalized).map_err(FormatError::Grammar)?;
+    let tree = adapter
+        .grammar()
+        .parse(&normalized)
+        .map_err(FormatError::Grammar)?;
     if let Some(error) = tree.first_error() {
         return Err(FormatError::Syntax(error));
     }
@@ -120,7 +127,11 @@ pub fn format_source(adapter: &dyn LanguageAdapter, source: &str, config: &Confi
             column_width: config.column_width,
             align_comments: config.comment_alignment,
             wrap_lines: attempt.wrap_lines,
-            brace_style: if attempt.place_braces { Some(brace_style) } else { None },
+            brace_style: if attempt.place_braces {
+                Some(brace_style)
+            } else {
+                None
+            },
         };
         let document = build_layout(&tree, adapter, &build_options);
         let printed = print(&document, &print_options);
@@ -141,7 +152,11 @@ pub fn format_source(adapter: &dyn LanguageAdapter, source: &str, config: &Confi
 }
 
 /// Parses the printed text and compares it with the original syntax tree.
-fn check_same_program(adapter: &dyn LanguageAdapter, original: &SyntaxTree, printed: &str) -> Result<(), String> {
+fn check_same_program(
+    adapter: &dyn LanguageAdapter,
+    original: &SyntaxTree,
+    printed: &str,
+) -> Result<(), String> {
     // Formatting only changes whitespace, so every other character must be unchanged
     // and in the same order. This catches lost or duplicated text anywhere in the file.
     if without_whitespace(original.source()) != without_whitespace(printed) {
@@ -152,7 +167,8 @@ fn check_same_program(adapter: &dyn LanguageAdapter, original: &SyntaxTree, prin
         return Err(format!("the result would not parse: {}", error));
     }
     let is_atomic = |node: Node| adapter.compare_as_atomic(node);
-    let text_matches = |node: Node, before: &str, after: &str| leaf_text_matches(adapter, node, before, after);
+    let text_matches =
+        |node: Node, before: &str, after: &str| leaf_text_matches(adapter, node, before, after);
     compare_trees(original, &formatted, &is_atomic, &text_matches)
 }
 

@@ -69,7 +69,14 @@ impl BraceStyle {
 }
 
 /// The language names that may have their own `[formatting.<language>]` table.
-pub const LANGUAGE_SECTIONS: &[&str] = &["rust", "toml", "javascript", "typescript", "csharp", "powershell"];
+pub const LANGUAGE_SECTIONS: &[&str] = &[
+    "rust",
+    "toml",
+    "javascript",
+    "typescript",
+    "csharp",
+    "powershell",
+];
 
 impl LineEnding {
     pub fn as_str(&self) -> &'static str {
@@ -222,13 +229,20 @@ pub fn parse_config(text: &str) -> Result<Config, ConfigError> {
         config.indent_size = check_range("indent_size", value, MIN_INDENT_SIZE, MAX_INDENT_SIZE)?;
     }
     if let Some(value) = table.column_width {
-        config.column_width = check_range("column_width", value, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH)?;
+        config.column_width =
+            check_range("column_width", value, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH)?;
     }
     if let Some(value) = table.indent_style {
         config.indent_style = match value.as_str() {
             "spaces" => IndentStyle::Spaces,
             "tabs" => IndentStyle::Tabs,
-            _ => return Err(invalid_choice("indent_style", &value, "\"spaces\" or \"tabs\"")),
+            _ => {
+                return Err(invalid_choice(
+                    "indent_style",
+                    &value,
+                    "\"spaces\" or \"tabs\"",
+                ))
+            }
         };
     }
     if let Some(value) = table.line_ending {
@@ -260,7 +274,9 @@ pub fn parse_config(text: &str) -> Result<Config, ConfigError> {
         {
             let name = format!("formatting.{}.brace_style", language);
             let style = parse_brace_style(&name, value)?;
-            config.language_brace_styles.push((language.to_string(), style));
+            config
+                .language_brace_styles
+                .push((language.to_string(), style));
         }
     }
     Ok(config)
@@ -271,7 +287,11 @@ fn parse_brace_style(name: &str, value: &str) -> Result<BraceStyle, ConfigError>
         "same_line" => Ok(BraceStyle::SameLine),
         "allman" => Ok(BraceStyle::Allman),
         "gnu" => Ok(BraceStyle::Gnu),
-        _ => Err(invalid_choice(name, value, "\"same_line\", \"allman\" or \"gnu\"")),
+        _ => Err(invalid_choice(
+            name,
+            value,
+            "\"same_line\", \"allman\" or \"gnu\"",
+        )),
     }
 }
 
@@ -298,7 +318,11 @@ pub fn load_config_file(path: &Path) -> Result<Config, ConfigError> {
 /// Looks for `autoformat.toml` in `start` (a file or a directory) and then in each parent
 /// directory. Returns the first file found.
 pub fn find_config_file(start: &Path) -> Option<PathBuf> {
-    let mut directory: Option<&Path> = if start.is_dir() { Some(start) } else { start.parent() };
+    let mut directory: Option<&Path> = if start.is_dir() {
+        Some(start)
+    } else {
+        start.parent()
+    };
     while let Some(current) = directory {
         let candidate = current.join(CONFIG_FILE_NAME);
         if candidate.is_file() {
@@ -334,7 +358,10 @@ fn check_range(name: &str, value: i64, min: usize, max: usize) -> Result<usize, 
     if value < min as i64 || value > max as i64 {
         return Err(ConfigError {
             path: None,
-            message: format!("`{}` must be between {} and {}, found {}", name, min, max, value),
+            message: format!(
+                "`{}` must be between {} and {}, found {}",
+                name, min, max, value
+            ),
         });
     }
     Ok(value as usize)
@@ -399,7 +426,8 @@ mod tests {
             ("allman", BraceStyle::Allman),
             ("gnu", BraceStyle::Gnu),
         ] {
-            let config = parse_config(&format!("[formatting]\nbrace_style = \"{}\"\n", text)).unwrap();
+            let config =
+                parse_config(&format!("[formatting]\nbrace_style = \"{}\"\n", text)).unwrap();
             assert_eq!(config.brace_style, style);
         }
     }
@@ -527,10 +555,15 @@ mod tests {
 
     #[test]
     fn discovers_config_in_parent_directories() {
-        let root = std::env::temp_dir().join(format!("autoformat-config-test-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("autoformat-config-test-{}", std::process::id()));
         let nested = root.join("a").join("b");
         std::fs::create_dir_all(&nested).unwrap();
-        std::fs::write(root.join(CONFIG_FILE_NAME), "[formatting]\nindent_size = 2\n").unwrap();
+        std::fs::write(
+            root.join(CONFIG_FILE_NAME),
+            "[formatting]\nindent_size = 2\n",
+        )
+        .unwrap();
 
         let file = nested.join("main.rs");
         std::fs::write(&file, "fn main() {}\n").unwrap();
@@ -539,7 +572,11 @@ mod tests {
         assert_eq!(path.unwrap(), root.join(CONFIG_FILE_NAME));
 
         // A closer file wins over one further up.
-        std::fs::write(nested.join(CONFIG_FILE_NAME), "[formatting]\nindent_size = 8\n").unwrap();
+        std::fs::write(
+            nested.join(CONFIG_FILE_NAME),
+            "[formatting]\nindent_size = 8\n",
+        )
+        .unwrap();
         let (config, _) = discover_config(&file).unwrap();
         assert_eq!(config.indent_size, 8);
 

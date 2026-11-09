@@ -108,7 +108,10 @@ pub struct TypeScriptLanguage {
 impl TypeScriptLanguage {
     pub fn new() -> TypeScriptLanguage {
         TypeScriptLanguage {
-            grammar: Grammar::new("typescript", tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
+            grammar: Grammar::new(
+                "typescript",
+                tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+            ),
         }
     }
 }

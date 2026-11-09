@@ -71,7 +71,8 @@ fn long_lines_are_wrapped_at_the_column_width() {
         column_width: 40,
         ..Config::default()
     };
-    let source = "fn main() {\n    let total = add_numbers(first_value, second_value, third_value);\n}\n";
+    let source =
+        "fn main() {\n    let total = add_numbers(first_value, second_value, third_value);\n}\n";
     let expected = "fn main() {\n    let total = add_numbers(\n        first_value,\n        second_value,\n        third_value\n    );\n}\n";
     let formatted = format_or_panic(&RustLanguage::new(), source, &config);
     assert_eq!(formatted, expected);
@@ -85,7 +86,10 @@ fn lines_that_cannot_be_wrapped_are_left_alone() {
         ..Config::default()
     };
     let source = "fn main() {\n    let message = \"this string is much longer than twenty characters\";\n}\n";
-    assert_eq!(format_or_panic(&RustLanguage::new(), source, &config), source);
+    assert_eq!(
+        format_or_panic(&RustLanguage::new(), source, &config),
+        source
+    );
 }
 
 #[test]
@@ -96,11 +100,20 @@ fn comment_alignment_can_be_disabled() {
     };
     let source = "fn main() {\n    let a = 1;     // one\n    let bb = 2; // two\n}\n";
     let expected = "fn main() {\n    let a = 1; // one\n    let bb = 2; // two\n}\n";
-    assert_eq!(format_or_panic(&RustLanguage::new(), source, &config), expected);
+    assert_eq!(
+        format_or_panic(&RustLanguage::new(), source, &config),
+        expected
+    );
 }
 
 #[test]
 fn empty_input_stays_empty() {
-    assert_eq!(format_or_panic(&RustLanguage::new(), "", &Config::default()), "");
-    assert_eq!(format_or_panic(&RustLanguage::new(), "\n\n", &Config::default()), "");
+    assert_eq!(
+        format_or_panic(&RustLanguage::new(), "", &Config::default()),
+        ""
+    );
+    assert_eq!(
+        format_or_panic(&RustLanguage::new(), "\n\n", &Config::default()),
+        ""
+    );
 }

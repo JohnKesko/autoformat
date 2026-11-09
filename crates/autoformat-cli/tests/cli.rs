@@ -10,7 +10,8 @@ fn binary() -> Command {
 
 /// A fresh temporary directory for one test.
 fn temp_dir(name: &str) -> PathBuf {
-    let directory = std::env::temp_dir().join(format!("autoformat-cli-{}-{}", name, std::process::id()));
+    let directory =
+        std::env::temp_dir().join(format!("autoformat-cli-{}-{}", name, std::process::id()));
     let _ = std::fs::remove_dir_all(&directory);
     std::fs::create_dir_all(&directory).unwrap();
     directory
@@ -40,9 +41,15 @@ fn formats_a_file_in_place() {
     let directory = temp_dir("in-place");
     let file = directory.join("main.rs");
     std::fs::write(&file, "fn main(){let x=1;}\n").unwrap();
-    let status = binary().args(["format", file.to_str().unwrap()]).status().unwrap();
+    let status = binary()
+        .args(["format", file.to_str().unwrap()])
+        .status()
+        .unwrap();
     assert!(status.success());
-    assert_eq!(std::fs::read_to_string(&file).unwrap(), "fn main() { let x = 1; }\n");
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "fn main() { let x = 1; }\n"
+    );
 }
 
 #[test]
@@ -52,13 +59,19 @@ fn formats_directories_and_skips_unknown_files() {
     std::fs::write(directory.join("src/a.ts"), "let a=1\n").unwrap();
     std::fs::write(directory.join("b.toml"), "x=1\n").unwrap();
     std::fs::write(directory.join("notes.md"), "# keep  me\n").unwrap();
-    let status = binary().args(["format", directory.to_str().unwrap()]).status().unwrap();
+    let status = binary()
+        .args(["format", directory.to_str().unwrap()])
+        .status()
+        .unwrap();
     assert!(status.success());
     assert_eq!(
         std::fs::read_to_string(directory.join("src/a.ts")).unwrap(),
         "let a = 1\n"
     );
-    assert_eq!(std::fs::read_to_string(directory.join("b.toml")).unwrap(), "x = 1\n");
+    assert_eq!(
+        std::fs::read_to_string(directory.join("b.toml")).unwrap(),
+        "x = 1\n"
+    );
     assert_eq!(
         std::fs::read_to_string(directory.join("notes.md")).unwrap(),
         "# keep  me\n"
@@ -95,7 +108,12 @@ fn stdin_mode_uses_the_file_name_and_config() {
     .unwrap();
     let path = directory.join("app.cs");
     let (code, stdout, _) = run_with_stdin(
-        &["format", "--stdin", "--stdin-filepath", path.to_str().unwrap()],
+        &[
+            "format",
+            "--stdin",
+            "--stdin-filepath",
+            path.to_str().unwrap(),
+        ],
         "class A\n{\nint x;\n}\n",
     );
     assert_eq!(code, 0);
@@ -104,7 +122,10 @@ fn stdin_mode_uses_the_file_name_and_config() {
 
 #[test]
 fn stdin_mode_with_explicit_language() {
-    let (code, stdout, _) = run_with_stdin(&["format", "--stdin", "--language", "powershell"], "if($a){ $b=1 }\n");
+    let (code, stdout, _) = run_with_stdin(
+        &["format", "--stdin", "--language", "powershell"],
+        "if($a){ $b=1 }\n",
+    );
     assert_eq!(code, 0);
     assert_eq!(stdout, "if ($a) { $b = 1 }\n");
 }
@@ -114,7 +135,10 @@ fn syntax_errors_fail_and_leave_the_file_alone() {
     let directory = temp_dir("syntax");
     let file = directory.join("broken.rs");
     std::fs::write(&file, "fn main( {\n").unwrap();
-    let output = binary().args(["format", file.to_str().unwrap()]).output().unwrap();
+    let output = binary()
+        .args(["format", file.to_str().unwrap()])
+        .output()
+        .unwrap();
     assert_eq!(output.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&output.stderr).contains("syntax error"));
     assert_eq!(std::fs::read_to_string(&file).unwrap(), "fn main( {\n");
@@ -130,7 +154,12 @@ fn invalid_configuration_is_reported() {
     .unwrap();
     let path = directory.join("a.rs");
     let (code, stdout, stderr) = run_with_stdin(
-        &["format", "--stdin", "--stdin-filepath", path.to_str().unwrap()],
+        &[
+            "format",
+            "--stdin",
+            "--stdin-filepath",
+            path.to_str().unwrap(),
+        ],
         "fn a() {}\n",
     );
     assert_eq!(code, 2);
@@ -158,7 +187,15 @@ fn unknown_options_and_languages_are_usage_errors() {
             .code(),
         Some(2)
     );
-    assert_eq!(binary().args(["frobnicate"]).output().unwrap().status.code(), Some(2));
+    assert_eq!(
+        binary()
+            .args(["frobnicate"])
+            .output()
+            .unwrap()
+            .status
+            .code(),
+        Some(2)
+    );
 }
 
 #[test]
@@ -177,6 +214,9 @@ fn lists_languages_and_shows_config() {
         assert!(text.contains(name), "missing {} in\n{}", name, text);
     }
     let directory = temp_dir("show-config");
-    let output = binary().args(["config", directory.to_str().unwrap()]).output().unwrap();
+    let output = binary()
+        .args(["config", directory.to_str().unwrap()])
+        .output()
+        .unwrap();
     assert!(String::from_utf8_lossy(&output.stdout).contains("indent_size"));
 }

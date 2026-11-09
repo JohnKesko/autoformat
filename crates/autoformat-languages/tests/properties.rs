@@ -13,7 +13,14 @@ use autoformat_languages::Languages;
 fn fixture_files() -> Vec<PathBuf> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();
-    for language in ["rust", "toml", "javascript", "typescript", "csharp", "powershell"] {
+    for language in [
+        "rust",
+        "toml",
+        "javascript",
+        "typescript",
+        "csharp",
+        "powershell",
+    ] {
         let directory = root.join(language).join("tests/fixtures");
         for entry in std::fs::read_dir(&directory).unwrap() {
             let path = entry.unwrap().path();
@@ -102,7 +109,13 @@ fn every_fixture_is_idempotent_and_only_whitespace_changes() {
                 config
             );
             let second = format_source(adapter, &first, &config).unwrap().text;
-            assert_eq!(first, second, "{} with {:?} is not idempotent", path.display(), config);
+            assert_eq!(
+                first,
+                second,
+                "{} with {:?} is not idempotent",
+                path.display(),
+                config
+            );
             if config.line_ending == LineEnding::Crlf {
                 assert!(
                     !first.replace("\r\n", "").contains('\n'),
@@ -178,13 +191,27 @@ fn comments_are_never_lost_or_duplicated() {
             "//",
         ),
         ("toml", "# a\nkey = 1 # b\n# c\n[t] # d\n", "#"),
-        ("js", "// a\nfunction f() { /* b */ return 1; // c\n}\n", "//"),
-        ("cs", "// a\nclass A { // b\n    int x; /* c */ // d\n}\n", "//"),
-        ("ps1", "# a\nfunction F { # b\n    $x = 1 # c\n}\n<# d #>\n", "#"),
+        (
+            "js",
+            "// a\nfunction f() { /* b */ return 1; // c\n}\n",
+            "//",
+        ),
+        (
+            "cs",
+            "// a\nclass A { // b\n    int x; /* c */ // d\n}\n",
+            "//",
+        ),
+        (
+            "ps1",
+            "# a\nfunction F { # b\n    $x = 1 # c\n}\n<# d #>\n",
+            "#",
+        ),
     ];
     for (extension, source, marker) in samples {
         let adapter = languages.by_extension(extension).unwrap();
-        let formatted = format_source(adapter, source, &Config::default()).unwrap().text;
+        let formatted = format_source(adapter, source, &Config::default())
+            .unwrap()
+            .text;
         assert_eq!(
             formatted.matches(marker).count(),
             source.matches(marker).count(),

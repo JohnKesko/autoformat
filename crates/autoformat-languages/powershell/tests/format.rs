@@ -14,7 +14,8 @@ fn fixtures() {
 #[test]
 fn here_strings_are_untouched() {
     let source = "function F {\n$a = @'\n  literal  $text\n'@\n$b = @\"\n    expanded $x\n\"@\n}\n";
-    let expected = "function F {\n    $a = @'\n  literal  $text\n'@\n    $b = @\"\n    expanded $x\n\"@\n}\n";
+    let expected =
+        "function F {\n    $a = @'\n  literal  $text\n'@\n    $b = @\"\n    expanded $x\n\"@\n}\n";
     assert_eq!(
         format_or_panic(&PowerShellLanguage::new(), source, &Config::default()),
         expected

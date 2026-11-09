@@ -6,7 +6,10 @@
 //! autoformat config [path]
 //! autoformat languages
 //! autoformat tree <file>
+//! autoformat upgrade [--check] [--yes]
 //! ```
+
+mod upgrade;
 
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -24,6 +27,7 @@ USAGE:
     autoformat config [PATH]                 Show the configuration used for a path
     autoformat languages                     List supported languages and extensions
     autoformat tree <FILE>                   Print the syntax tree of a file (for debugging)
+    autoformat upgrade [--check] [--yes]     Update autoformat to the newest version
 
 FORMAT OPTIONS:
     --check                  Do not write files; exit with code 1 if any file would change
@@ -32,6 +36,10 @@ FORMAT OPTIONS:
     --language <NAME>        Use this language instead of detecting it from the file extension
     --config <FILE>          Use this configuration file instead of searching for autoformat.toml
     --verbose                Print extra information
+
+UPGRADE OPTIONS:
+    --check                  Only tell whether a newer version exists
+    -y, --yes                Install without asking first
 
 OTHER OPTIONS:
     -h, --help               Show this help
@@ -78,6 +86,10 @@ fn run(arguments: &[String]) -> u8 {
         "config" => run_config(rest),
         "languages" => run_languages(),
         "tree" => run_tree(rest),
+        "upgrade" | "update" => match parse_upgrade_options(rest) {
+            Ok(options) => upgrade::run(&options),
+            Err(message) => usage_error(&message),
+        },
         "-h" | "--help" | "help" => {
             print!("{}", HELP);
             0
@@ -94,6 +106,21 @@ fn usage_error(message: &str) -> u8 {
     eprintln!("error: {}", message);
     eprintln!("Run `autoformat --help` for usage.");
     2
+}
+
+fn parse_upgrade_options(arguments: &[String]) -> Result<upgrade::UpgradeOptions, String> {
+    let mut options = upgrade::UpgradeOptions {
+        check_only: false,
+        yes: false,
+    };
+    for argument in arguments {
+        match argument.as_str() {
+            "--check" => options.check_only = true,
+            "-y" | "--yes" => options.yes = true,
+            other => return Err(format!("unknown option `{}` for upgrade", other)),
+        }
+    }
+    Ok(options)
 }
 
 fn parse_format_options(arguments: &[String]) -> Result<FormatOptions, String> {
@@ -151,7 +178,10 @@ fn run_format(options: &FormatOptions) -> u8 {
     let languages = Languages::new();
     if let Some(name) = &options.language {
         if languages.by_name(name).is_none() {
-            return usage_error(&format!("unknown language `{}` (see `autoformat languages`)", name));
+            return usage_error(&format!(
+                "unknown language `{}` (see `autoformat languages`)",
+                name
+            ));
         }
     }
     if options.stdin {
@@ -196,7 +226,11 @@ fn run_format(options: &FormatOptions) -> u8 {
 
     if options.verbose || options.check {
         if options.check {
-            println!("{} file(s) checked, {} would be reformatted", files.len(), unformatted);
+            println!(
+                "{} file(s) checked, {} would be reformatted",
+                files.len(),
+                unformatted
+            );
         } else {
             println!("{} file(s) checked, {} reformatted", files.len(), changed);
         }
@@ -213,10 +247,15 @@ enum FileResult {
     Unchanged,
 }
 
-fn format_file(path: &Path, options: &FormatOptions, languages: &Languages) -> Result<FileResult, String> {
+fn format_file(
+    path: &Path,
+    options: &FormatOptions,
+    languages: &Languages,
+) -> Result<FileResult, String> {
     let adapter = pick_language(path, options, languages)?;
     let config = load_config(&options.config, path)?;
-    let source = std::fs::read_to_string(path).map_err(|error| format!("cannot read the file: {}", error))?;
+    let source = std::fs::read_to_string(path)
+        .map_err(|error| format!("cannot read the file: {}", error))?;
     let formatted = format_source(adapter, &source, &config).map_err(|error| error.to_string())?;
     if options.verbose {
         for note in &formatted.notes {
@@ -227,7 +266,8 @@ fn format_file(path: &Path, options: &FormatOptions, languages: &Languages) -> R
         return Ok(FileResult::Unchanged);
     }
     if !options.check {
-        std::fs::write(path, &formatted.text).map_err(|error| format!("cannot write the file: {}", error))?;
+        std::fs::write(path, &formatted.text)
+            .map_err(|error| format!("cannot write the file: {}", error))?;
     }
     Ok(FileResult::Changed)
 }

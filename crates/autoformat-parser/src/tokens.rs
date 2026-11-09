@@ -51,7 +51,8 @@ impl SyntaxTree {
                 continue;
             }
             push_gap_tokens(source, position, start, &mut tokens);
-            let (line_breaks_before, space_before) = describe_gap(source, gap_start(&tokens, position), start);
+            let (line_breaks_before, space_before) =
+                describe_gap(source, gap_start(&tokens, position), start);
             tokens.push(RawToken {
                 node: Some(leaf),
                 start,
@@ -68,7 +69,11 @@ impl SyntaxTree {
 
 /// Collects leaves (and atomic nodes) in source order. Zero-width nodes are skipped
 /// because they have no text to print.
-fn collect_leaves<'tree>(root: Node<'tree>, is_atomic: &dyn Fn(Node) -> bool, leaves: &mut Vec<Node<'tree>>) {
+fn collect_leaves<'tree>(
+    root: Node<'tree>,
+    is_atomic: &dyn Fn(Node) -> bool,
+    leaves: &mut Vec<Node<'tree>>,
+) {
     let mut cursor = root.walk();
     loop {
         let node = cursor.node();

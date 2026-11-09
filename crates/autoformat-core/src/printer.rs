@@ -49,16 +49,17 @@ pub fn print(document: &LayoutDocument, options: &PrintOptions) -> String {
         return String::new();
     }
     let mut breaks = initial_line_breaks(document);
+    // Free lists are joined first, so that brace placement and wrapping always start
+    // from the same layout, whatever an earlier run with other settings produced.
+    let mut free_groups = vec![false; document.groups.len()];
+    if options.wrap_lines {
+        free_groups = join_free_groups(document, &mut breaks);
+    }
     if let Some(style) = options.brace_style {
         place_block_braces(document, &mut breaks, style);
     }
     if options.wrap_lines {
-        wrap_long_lines(document, &mut breaks, options);
-        // Wrapping can turn a one-line block into a multi-line one, which then needs its
-        // braces placed as well.
-        if let Some(style) = options.brace_style {
-            place_block_braces(document, &mut breaks, style);
-        }
+        wrap_long_lines(document, &mut breaks, options, &free_groups);
     }
     let lines = build_lines(document, &breaks, options);
     render(document, &lines, options)
@@ -85,14 +86,14 @@ fn place_block_braces(document: &LayoutDocument, breaks: &mut [usize], style: Br
             if breaks[open] > 0 && can_join_previous_line(tokens, open) {
                 breaks[open] = 0;
             }
-            continue;
+        } else if !is_single_line(breaks, open, close) && breaks[open] == 0 {
+            breaks[open] = 1;
         }
         if is_single_line(breaks, open, close) {
             continue;
         }
-        if breaks[open] == 0 {
-            breaks[open] = 1;
-        }
+        // In every style a multi-line block has its contents and its `}` on lines of
+        // their own, so switching styles back and forth always gives the same result.
         if open + 1 < close {
             add_line_break(document, breaks, open + 1, close);
         }
@@ -145,7 +146,9 @@ fn initial_line_breaks(document: &LayoutDocument) -> Vec<usize> {
         let mut count = tokens[index].line_breaks_before.min(2);
         if index == 0 {
             count = 0;
-        } else if count > 1 && (tokens[index - 1].opens_group.is_some() || tokens[index].closes_group.is_some()) {
+        } else if count > 1
+            && (tokens[index - 1].opens_group.is_some() || tokens[index].closes_group.is_some())
+        {
             count = 1;
         }
         breaks.push(count);
@@ -221,7 +224,14 @@ fn build_lines(document: &LayoutDocument, breaks: &[usize], options: &PrintOptio
                 }
             }
             if tokens[index].opens_group.is_some() {
-                open_group_levels.push(block_level(tokens, index, first, current_level, &lines, &line_of_token));
+                open_group_levels.push(block_level(
+                    tokens,
+                    index,
+                    first,
+                    current_level,
+                    &lines,
+                    &line_of_token,
+                ));
             }
         }
     }
@@ -263,7 +273,12 @@ fn block_level(
 ///
 /// Only nodes that begin a line count. In `} else if x {` the inner `if` starts in the
 /// middle of the line, so it does not push the following `else` further right.
-fn continuation_levels(token: &LayoutToken, line_index: usize, lines: &[Line], line_of_token: &[usize]) -> usize {
+fn continuation_levels(
+    token: &LayoutToken,
+    line_index: usize,
+    lines: &[Line],
+    line_of_token: &[usize],
+) -> usize {
     let mut earlier_lines: Vec<usize> = Vec::new();
     for &anchor in &token.anchors {
         let anchor_line = line_of_token[anchor];
@@ -312,7 +327,92 @@ fn indent_comment_lines(document: &LayoutDocument, lines: &mut [Line]) {
 
 /// Adds line breaks inside bracket groups until no line is longer than the column width,
 /// or until nothing more can be wrapped.
-fn wrap_long_lines(document: &LayoutDocument, breaks: &mut [usize], options: &PrintOptions) {
+/// Puts every "free" list back on one line, so that wrapping can then decide its layout
+/// from `column_width` alone. Returns which groups are free.
+///
+/// Because free lists are always joined first, their final layout depends only on the
+/// code and the current settings, never on how they were laid out before. That is what
+/// lets people change `column_width` (or anything else that changes line widths) and
+/// change it back: the second result is the same as the first.
+///
+/// A list is free when:
+/// - it is a wrappable `(...)` or `[...]` list,
+/// - there is no comma after its last item (a trailing comma keeps the list as written),
+/// - it has no comments, blank lines or multi-line strings inside,
+/// - every line break inside it is between its items or right inside its brackets,
+/// - the language knows the spacing at each of those points.
+///
+/// Every other group keeps the layout it was written with and is never wrapped.
+fn join_free_groups(document: &LayoutDocument, breaks: &mut [usize]) -> Vec<bool> {
+    let groups = &document.groups;
+    let mut free = vec![false; groups.len()];
+    // Inner lists first (they open later), so the lists around them see them joined.
+    let mut order: Vec<usize> = (0..groups.len()).collect();
+    order.sort_by(|left, right| groups[*right].open.cmp(&groups[*left].open));
+    for group_index in order {
+        if !is_free_group(document, group_index, breaks) {
+            continue;
+        }
+        free[group_index] = true;
+        let group = &groups[group_index];
+        breaks[group.open + 1] = 0;
+        for &separator in &group.separators {
+            breaks[separator + 1] = 0;
+        }
+        breaks[group.close] = 0;
+    }
+    free
+}
+
+fn is_free_group(document: &LayoutDocument, group_index: usize, breaks: &[usize]) -> bool {
+    let tokens = &document.tokens;
+    let group = &document.groups[group_index];
+    let open_text = tokens[group.open].text.as_str();
+    if !group.wrappable || (open_text != "(" && open_text != "[") {
+        return false;
+    }
+    if group.close == group.open + 1 {
+        return false;
+    }
+    // A comma right before the closing bracket means "keep this list as I wrote it".
+    if group.separators.contains(&(group.close - 1)) {
+        return false;
+    }
+    // Joining a wrapped list must give exactly the line it came from, so the language has
+    // to know the spacing at every point where the list may be split. Where it keeps the
+    // original spacing instead (inside `macro_rules!`, for example), the list is left alone.
+    let mut split_points = vec![group.open + 1, group.close];
+    for &separator in &group.separators {
+        split_points.push(separator + 1);
+    }
+    for index in split_points {
+        if tokens[index].spacing == Spacing::Keep {
+            return false;
+        }
+    }
+    for index in group.open + 1..=group.close {
+        let token = &tokens[index];
+        if token.is_comment || token.is_multi_line() || breaks[index] > 1 {
+            return false;
+        }
+        if breaks[index] > 0 {
+            let between_items = index == group.open + 1
+                || index == group.close
+                || group.separators.contains(&(index - 1));
+            if !between_items {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn wrap_long_lines(
+    document: &LayoutDocument,
+    breaks: &mut [usize],
+    options: &PrintOptions,
+    free_groups: &[bool],
+) {
     let mut wrapped = vec![false; document.groups.len()];
     loop {
         let lines = build_lines(document, breaks, options);
@@ -325,7 +425,7 @@ fn wrap_long_lines(document: &LayoutDocument, breaks: &mut [usize], options: &Pr
             if width <= options.column_width {
                 continue;
             }
-            if let Some(group) = choose_group_to_wrap(document, line, &wrapped) {
+            if let Some(group) = choose_group_to_wrap(document, line, free_groups, &wrapped) {
                 wrap_group(document, group, breaks);
                 wrapped[group] = true;
                 changed = true;
@@ -338,8 +438,13 @@ fn wrap_long_lines(document: &LayoutDocument, breaks: &mut [usize], options: &Pr
     }
 }
 
-/// Picks the outermost wrappable group that opens on this line.
-fn choose_group_to_wrap(document: &LayoutDocument, line: &Line, wrapped: &[bool]) -> Option<usize> {
+/// Picks the outermost free group that opens on this line.
+fn choose_group_to_wrap(
+    document: &LayoutDocument,
+    line: &Line,
+    free_groups: &[bool],
+    wrapped: &[bool],
+) -> Option<usize> {
     let mut depth: usize = 0;
     let mut best: Option<(usize, usize)> = None; // (depth, group)
     for index in line.first..=line.last {
@@ -350,7 +455,7 @@ fn choose_group_to_wrap(document: &LayoutDocument, line: &Line, wrapped: &[bool]
         if let Some(group_index) = token.opens_group {
             let group = &document.groups[group_index];
             let has_contents = group.close > group.open + 1;
-            if group.wrappable && has_contents && !wrapped[group_index] {
+            if free_groups[group_index] && has_contents && !wrapped[group_index] {
                 let better = match best {
                     Some((best_depth, _)) => depth < best_depth,
                     None => true,
@@ -477,7 +582,11 @@ fn code_width(document: &LayoutDocument, line: &Line, options: &PrintOptions) ->
 ///
 /// Consecutive lines with trailing comments and the same indentation form a block. All
 /// comments in a block start in the same column: two spaces after the longest line.
-fn comment_columns(document: &LayoutDocument, lines: &[Line], options: &PrintOptions) -> Vec<Option<usize>> {
+fn comment_columns(
+    document: &LayoutDocument,
+    lines: &[Line],
+    options: &PrintOptions,
+) -> Vec<Option<usize>> {
     let mut columns: Vec<Option<usize>> = vec![None; lines.len()];
     if !options.align_comments {
         return columns;
@@ -536,7 +645,8 @@ fn render(document: &LayoutDocument, lines: &[Line], options: &PrintOptions) -> 
         for index in line.first..=line.last {
             let token = &document.tokens[index];
             if index > line.first {
-                let is_trailing_comment = index == line.last && has_trailing_comment(document, line);
+                let is_trailing_comment =
+                    index == line.last && has_trailing_comment(document, line);
                 if is_trailing_comment {
                     let target = columns[line_index].unwrap_or(0);
                     let spaces = if target > column { target - column } else { 1 };
@@ -613,7 +723,11 @@ fn write_token(
 /// Moves one line of a multi-line token left or right.
 fn shift_line(text: &str, shift: isize, trim_end: bool, options: &PrintOptions) -> String {
     let content = text.trim_start();
-    let content = if trim_end { content.trim_end() } else { content };
+    let content = if trim_end {
+        content.trim_end()
+    } else {
+        content
+    };
     if content.trim().is_empty() {
         return String::new();
     }

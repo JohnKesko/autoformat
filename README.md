@@ -79,6 +79,22 @@ indent_size = 4
 column_width = 140
 ```
 
+Lists in `( )` and `[ ]` (function parameters, call arguments, arrays) are put on one line when they fit, and one item per line when they don't:
+
+```rust
+// column_width = 80
+pub async fn incoming(
+    stream: TcpStream,
+    tls_acceptor: TlsAcceptor,
+    context: Arc<Context>
+) {}
+
+// column_width = 140
+pub async fn incoming(stream: TcpStream, tls_acceptor: TlsAcceptor, context: Arc<Context>) {}
+```
+
+A list is left exactly as you wrote it if it ends with a comma after the last item, or has a comment inside. Lists in `{ }` (objects, initializers, struct bodies) are never wrapped.
+
 ```
 # comment_alignment -  Aligns comments based on the length of the left side.
 # var first = 10;           // This is some comment
@@ -172,22 +188,18 @@ These never move:
 
 A block written on one line, like `if (x) { return; }`, stays on one line.
 
+## Changing settings
+
+You can change any setting and change it back later. Formatting with the old setting again gives exactly the same result as before, so you are never stuck with an earlier choice.
+
 ## What it never does
 
 - It never adds, removes or reorders anything. Commas, semicolons, quotes and parentheses stay exactly as you wrote them. Only spaces and line breaks change.
 - It never changes the inside of strings or comments.
-- It never joins lines you split. (Only exception: `brace_style = "same_line"` moves a `{` up to the line before it.)
+- It never joins lines you split, except in two cases: lists in `( )` and `[ ]` that fit within `column_width` are put back on one line, and `brace_style = "same_line"` moves a `{` up to the line before it.
 - It never formats a file that has syntax errors.
 - It never moves a comment to a different place in the code.
 - It never changes what your code does. After formatting, AutoFormat reads the result again and compares it with the original. If anything other than spacing changed, it does less, or nothing.
-
-## Supported editors
-
-| Editor | Status |
-|---|---|
-| VS Code 1.90 or newer | Supported and tested |
-| Editors based on VS Code (Cursor, VSCodium, Windsurf) | Should work if you install the `.vsix` file by hand. Not tested yet, and not in their extension store (Open VSX) yet. |
-| Other editors (Visual Studio, JetBrains, Neovim, Zed, Helix) | No extension. Editors that can run an external formatter can use the command line: `autoformat format --stdin --stdin-filepath <file>`. Not tested yet. |
 
 ## VS Code
 
@@ -216,11 +228,48 @@ To always use AutoFormat, add this to your VS Code settings:
 
 ## Command line
 
-Download it from a GitHub release, or build it yourself:
+### Install
+
+macOS and Linux:
 
 ```bash
-cargo install --path crates/autoformat-cli
+curl -fsSL https://raw.githubusercontent.com/JohnKesko/autoformat/master/install.sh | sh
 ```
+
+Windows (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/JohnKesko/autoformat/master/install.ps1 | iex
+```
+
+The script downloads the newest release for your computer, checks it against the published checksum, and installs it. No administrator rights are needed:
+
+- macOS and Linux: `~/.local/bin/autoformat`. If that folder is not in your PATH, the script tells you the line to add.
+- Windows: `%LOCALAPPDATA%\Programs\autoformat\autoformat.exe`, and the folder is added to your PATH.
+
+To install somewhere else, or a specific version, set `AUTOFORMAT_INSTALL_DIR` or `AUTOFORMAT_VERSION` first, for example:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JohnKesko/autoformat/master/install.sh | AUTOFORMAT_VERSION=0.1.2 sh
+```
+
+Or build it yourself (needs Rust and a C compiler):
+
+```bash
+cargo install --git https://github.com/JohnKesko/autoformat autoformat-cli
+```
+
+### Upgrade
+
+```bash
+autoformat upgrade
+```
+
+It checks for a newer version, asks before installing, checks the download against the published checksum, and replaces itself. `autoformat upgrade --check` only tells you whether a newer version exists, and `--yes` skips the question.
+
+The copy of autoformat that comes with the VS Code extension is updated by VS Code, together with the extension.
+
+### Use
 
 Format files or whole folders:
 

@@ -45,6 +45,14 @@ tree-sitter-typescript = "0.23"
 tree-sitter-c-sharp = "0.23"
 tree-sitter-powershell = "0.26"
 
+# Only for `autoformat upgrade`: HTTPS downloads, checksums, unpacking, replacing the program.
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+sha2 = "0.11"
+flate2 = "1"
+tar = "0.4"
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
+self-replace = "1.5"
+
 [profile.release]
 lto = true
 codegen-units = 1

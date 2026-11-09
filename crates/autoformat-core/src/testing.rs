@@ -32,7 +32,12 @@ pub fn format_or_panic(adapter: &dyn LanguageAdapter, source: &str, config: &Con
 }
 
 /// Asserts that formatting the text again changes nothing.
-pub fn assert_idempotent(adapter: &dyn LanguageAdapter, formatted: &str, config: &Config, name: &str) {
+pub fn assert_idempotent(
+    adapter: &dyn LanguageAdapter,
+    formatted: &str,
+    config: &Config,
+    name: &str,
+) {
     let again = format_or_panic(adapter, formatted, config);
     if again != formatted {
         panic!(
@@ -55,7 +60,11 @@ pub fn check_fixtures(adapter: &dyn LanguageAdapter, directory: &Path) -> usize 
     let mut checked = 0;
     let mut failures = Vec::new();
     for input_path in entries {
-        let file_name = input_path.file_name().unwrap().to_string_lossy().to_string();
+        let file_name = input_path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         if !file_name.contains(".input.") {
             continue;
         }

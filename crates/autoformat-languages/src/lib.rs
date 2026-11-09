@@ -69,9 +69,18 @@ mod tests {
     #[test]
     fn detects_languages_from_paths() {
         let languages = Languages::new();
-        assert_eq!(languages.for_path(Path::new("src/main.rs")).unwrap().name(), "rust");
-        assert_eq!(languages.for_path(Path::new("Cargo.toml")).unwrap().name(), "toml");
-        assert_eq!(languages.for_path(Path::new("MAIN.RS")).unwrap().name(), "rust");
+        assert_eq!(
+            languages.for_path(Path::new("src/main.rs")).unwrap().name(),
+            "rust"
+        );
+        assert_eq!(
+            languages.for_path(Path::new("Cargo.toml")).unwrap().name(),
+            "toml"
+        );
+        assert_eq!(
+            languages.for_path(Path::new("MAIN.RS")).unwrap().name(),
+            "rust"
+        );
         assert!(languages.for_path(Path::new("README.md")).is_none());
         assert!(languages.for_path(Path::new("Makefile")).is_none());
     }

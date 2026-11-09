@@ -172,7 +172,9 @@ impl LanguageAdapter for CSharpLanguage {
         }
 
         // Relational patterns: `x is < 18`, `{ Age: >= 65 }`.
-        if previous.parent_kind == "relational_pattern" && previous.role == autoformat_core::Role::Prefix {
+        if previous.parent_kind == "relational_pattern"
+            && previous.role == autoformat_core::Role::Prefix
+        {
             return Some(Spacing::Space);
         }
 

@@ -8,7 +8,8 @@ use autoformat_parser::{ParentMap, RawToken, SyntaxTree};
 
 use crate::adapter::{LanguageAdapter, LanguageRules};
 use crate::context::{
-    is_conditional_colon, is_operator_text, is_word_text, operator_position, Role, TokenContext, TIGHT_TOKENS,
+    is_conditional_colon, is_operator_text, is_word_text, operator_position, Role, TokenContext,
+    TIGHT_TOKENS,
 };
 use crate::layout::{Group, LayoutDocument, LayoutToken, MultiLine, Spacing};
 use crate::spacing::common_spacing;
@@ -30,7 +31,11 @@ struct BracketPair<'tree> {
     list_node: Node<'tree>,
 }
 
-pub fn build_layout(tree: &SyntaxTree, adapter: &dyn LanguageAdapter, options: &BuildOptions) -> LayoutDocument {
+pub fn build_layout(
+    tree: &SyntaxTree,
+    adapter: &dyn LanguageAdapter,
+    options: &BuildOptions,
+) -> LayoutDocument {
     let rules = adapter.rules();
     let source = tree.source();
     let is_atomic = |node: Node| rules.is_atomic(node);
@@ -53,7 +58,9 @@ pub fn build_layout(tree: &SyntaxTree, adapter: &dyn LanguageAdapter, options: &
     for (index, raw) in raw_tokens.iter().enumerate() {
         let is_open = opens[index].is_some();
         let is_close = closes[index].is_some();
-        contexts.push(make_context(index, raw, source, rules, is_open, is_close, &parents));
+        contexts.push(make_context(
+            index, raw, source, rules, is_open, is_close, &parents,
+        ));
     }
 
     let mut tokens: Vec<LayoutToken> = Vec::with_capacity(count);
@@ -84,7 +91,8 @@ pub fn build_layout(tree: &SyntaxTree, adapter: &dyn LanguageAdapter, options: &
         if let Some(node) = raw.node {
             if !token.is_comment {
                 let stop = enclosing[index].map(|group| pairs[group].list_node.id());
-                token.anchors = find_anchors(node, index, stop, root_id, rules, &token_starts, &parents);
+                token.anchors =
+                    find_anchors(node, index, stop, root_id, rules, &token_starts, &parents);
             }
             if token.is_multi_line() {
                 if token.is_comment {
@@ -162,7 +170,11 @@ fn pair_brackets<'tree>(
         };
         let text = &source[token.start..token.end];
         if let Some(closer) = closer_for(text, rules) {
-            stack.push(OpenBracket { index, closer, parent });
+            stack.push(OpenBracket {
+                index,
+                closer,
+                parent,
+            });
             continue;
         }
         if !is_closer(text, rules) {
@@ -369,7 +381,9 @@ fn find_separators(
 ) -> Vec<usize> {
     let mut separators = Vec::new();
     for index in pair.open + 1..pair.close {
-        if enclosing[index] != Some(group_index) || !rules.separators.contains(&contexts[index].text) {
+        if enclosing[index] != Some(group_index)
+            || !rules.separators.contains(&contexts[index].text)
+        {
             continue;
         }
         let parent = match contexts[index].node.and_then(|node| parents.parent(node)) {
@@ -378,7 +392,8 @@ fn find_separators(
         };
         let direct_child = parent.id() == pair.list_node.id();
         let child_of_transparent_list = rules.transparent_kinds.contains(&parent.kind())
-            && parents.parent(parent).map(|grandparent| grandparent.id()) == Some(pair.list_node.id());
+            && parents.parent(parent).map(|grandparent| grandparent.id())
+                == Some(pair.list_node.id());
         if direct_child || child_of_transparent_list {
             separators.push(index);
         }

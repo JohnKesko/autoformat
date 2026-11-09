@@ -36,7 +36,10 @@ impl Grammar {
         }
         match parser.parse(source, None) {
             Some(tree) => Ok(SyntaxTree::new(source.to_string(), tree)),
-            None => Err(format!("the {} parser did not produce a syntax tree", self.name)),
+            None => Err(format!(
+                "the {} parser did not produce a syntax tree",
+                self.name
+            )),
         }
     }
 }

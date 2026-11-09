@@ -76,11 +76,14 @@ const GENERATOR_KINDS: &[&str] = &["generator_function_declaration", "generator_
 /// Spacing rules shared by JavaScript and TypeScript.
 pub fn spacing(previous: &TokenContext, next: &TokenContext) -> Option<Spacing> {
     // Generators: `function* name()`, `yield* other()`.
-    if next.is("*") && (GENERATOR_KINDS.contains(&next.parent_kind) || next.parent_kind == "yield_expression") {
+    if next.is("*")
+        && (GENERATOR_KINDS.contains(&next.parent_kind) || next.parent_kind == "yield_expression")
+    {
         return Some(Spacing::NoSpace);
     }
     if previous.is("*")
-        && (GENERATOR_KINDS.contains(&previous.parent_kind) || previous.parent_kind == "yield_expression")
+        && (GENERATOR_KINDS.contains(&previous.parent_kind)
+            || previous.parent_kind == "yield_expression")
     {
         return Some(Spacing::Space);
     }
@@ -194,10 +197,19 @@ mod tests {
 
     #[test]
     fn jsx_text_ignores_indentation() {
-        assert_eq!(jsx_visible_text("\n    Hello "), jsx_visible_text("\n        Hello "));
-        assert_eq!(jsx_visible_text(" world\n    "), jsx_visible_text(" world\n"));
+        assert_eq!(
+            jsx_visible_text("\n    Hello "),
+            jsx_visible_text("\n        Hello ")
+        );
+        assert_eq!(
+            jsx_visible_text(" world\n    "),
+            jsx_visible_text(" world\n")
+        );
         assert_ne!(jsx_visible_text("a b"), jsx_visible_text("ab"));
         assert_ne!(jsx_visible_text("a  b"), jsx_visible_text("a b"));
-        assert_eq!(jsx_visible_text("\n  line one\n  line two\n"), "line one line two");
+        assert_eq!(
+            jsx_visible_text("\n  line one\n  line two\n"),
+            "line one line two"
+        );
     }
 }
