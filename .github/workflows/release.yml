@@ -1,27 +1,72 @@
-name: Release
+name: Build & Release
 
-# Builds the autoformat binary for every platform and packages one VS Code extension
-# per platform. Runs when a version tag such as v0.1.0 is pushed.
+# Every push to master runs the tests. When the version in vscode/extension/package.json
+# does not have a git tag yet, this workflow also:
+#   1. builds the autoformat binary for every platform,
+#   2. packages one VS Code extension per platform,
+#   3. publishes them to the VS Code Marketplace (needs the VSC_PERSONAL_TOKEN secret),
+#   4. creates the tag and a GitHub release with the extensions and command line archives.
+# To release: raise the version in vscode/extension/package.json and Cargo.toml, then push.
 on:
   push:
-    tags: ["v*"]
+    branches: [master]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  tests:
+    uses: ./.github/workflows/ci.yml
+
+  version:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+      release: ${{ steps.read.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: read
+        run: |
+          version=$(node -p "require('./vscode/extension/package.json').version")
+          cargo_version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          if [ "$version" != "$cargo_version" ]; then
+            echo "::error::Version mismatch: package.json has $version but Cargo.toml has $cargo_version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse "v$version" >/dev/null 2>&1; then
+            echo "::notice::v$version is already released; nothing to publish."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
-    name: ${{ matrix.vscode_target }}
+    name: Build ${{ matrix.rust_target }}
+    needs: [tests, version]
+    if: needs.version.outputs.release == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         include:
-          - { os: windows-latest, rust_target: x86_64-pc-windows-msvc, vscode_target: win32-x64, exe: autoformat.exe }
-          - { os: windows-latest, rust_target: aarch64-pc-windows-msvc, vscode_target: win32-arm64, exe: autoformat.exe }
-          - { os: macos-14, rust_target: x86_64-apple-darwin, vscode_target: darwin-x64, exe: autoformat }
-          - { os: macos-14, rust_target: aarch64-apple-darwin, vscode_target: darwin-arm64, exe: autoformat }
-          - { os: ubuntu-latest, rust_target: x86_64-unknown-linux-musl, vscode_target: linux-x64, exe: autoformat }
-          - { os: ubuntu-24.04-arm, rust_target: aarch64-unknown-linux-musl, vscode_target: linux-arm64, exe: autoformat }
-          - { os: ubuntu-latest, rust_target: x86_64-unknown-linux-musl, vscode_target: alpine-x64, exe: autoformat }
+          - { os: windows-latest, rust_target: x86_64-pc-windows-msvc, vscode_targets: win32-x64, exe: autoformat.exe, smoke_test: true }
+          - { os: windows-11-arm, rust_target: aarch64-pc-windows-msvc, vscode_targets: win32-arm64, exe: autoformat.exe, smoke_test: true }
+          - { os: macos-14, rust_target: aarch64-apple-darwin, vscode_targets: darwin-arm64, exe: autoformat, smoke_test: true }
+          - { os: macos-14, rust_target: x86_64-apple-darwin, vscode_targets: darwin-x64, exe: autoformat, smoke_test: false }
+          - { os: ubuntu-latest, rust_target: x86_64-unknown-linux-musl, vscode_targets: "linux-x64 alpine-x64", exe: autoformat, smoke_test: true }
+          - { os: ubuntu-24.04-arm, rust_target: aarch64-unknown-linux-musl, vscode_targets: "linux-arm64 alpine-arm64", exe: autoformat, smoke_test: true }
+    env:
+      BINARY: target/${{ matrix.rust_target }}/release/${{ matrix.exe }}
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -30,23 +75,79 @@ jobs:
       - name: Install musl tools
         if: contains(matrix.rust_target, 'musl')
         run: sudo apt-get update && sudo apt-get install -y musl-tools
-      - run: cargo build --release --locked -p autoformat-cli --target ${{ matrix.rust_target }}
+      - name: Build
+        run: cargo build --release --locked -p autoformat-cli --target ${{ matrix.rust_target }}
+      - name: Smoke test the binary
+        if: matrix.smoke_test
+        shell: bash
+        run: |
+          "$BINARY" --version
+          result=$(printf 'fn main(){let x=1;}\n' | "$BINARY" format --stdin --language rust)
+          test "$result" = "fn main() { let x = 1; }"
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - name: Package the extension
         shell: bash
-        run: scripts/package-extension.sh ${{ matrix.vscode_target }} target/${{ matrix.rust_target }}/release/${{ matrix.exe }}
+        run: |
+          for target in ${{ matrix.vscode_targets }}; do
+            scripts/package-extension.sh "$target" "$BINARY"
+          done
       - name: Archive the command line tool
         shell: bash
         run: |
           mkdir -p dist
-          cp target/${{ matrix.rust_target }}/release/${{ matrix.exe }} dist/
-          cp LICENSE README.md THIRD_PARTY_LICENSES.md dist/
-          tar -czf autoformat-${{ matrix.vscode_target }}.tar.gz -C dist .
+          cp "$BINARY" LICENSE README.md THIRD_PARTY_LICENSES.md dist/
+          name="autoformat-$VERSION-${{ matrix.rust_target }}"
+          if [[ "${{ matrix.exe }}" == *.exe ]]; then
+            (cd dist && 7z a "../$name.zip" .)
+          else
+            tar -czf "$name.tar.gz" -C dist .
+          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: autoformat-${{ matrix.vscode_target }}
+          name: release-${{ matrix.rust_target }}
+          if-no-files-found: error
           path: |
             vscode/extension/*.vsix
-            autoformat-${{ matrix.vscode_target }}.tar.gz
+            autoformat-*.zip
+            autoformat-*.tar.gz
+
+  publish:
+    name: Publish v${{ needs.version.outputs.version }}
+    needs: [version, build]
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      VSCE_PAT: ${{ secrets.VSC_PERSONAL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          pattern: release-*
+          merge-multiple: true
+      - name: List the release files
+        run: ls -l release
+      - name: Check the Marketplace token
+        id: token
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "::warning::The VSC_PERSONAL_TOKEN secret is not set, so nothing was published or tagged. Add it and push again (or run this workflow by hand)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.ready == 'true'
+        with:
+          node-version: 20
+      - name: Publish to the VS Code Marketplace
+        if: steps.token.outputs.ready == 'true'
+        run: npx --yes @vscode/vsce@4.1.0 publish --skip-duplicate --packagePath release/*.vsix
+      - name: Create the tag and GitHub release
+        if: steps.token.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "v$VERSION" release/* --target "$GITHUB_SHA" --title "AutoFormat $VERSION" --generate-notes

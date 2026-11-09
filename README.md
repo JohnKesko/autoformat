@@ -63,7 +63,7 @@ formatter binary is included, so it works right away. Nothing is downloaded.
 - **Format Document** (`Shift+Alt+F`) uses AutoFormat for all six languages.
 - **Format on save** is on by default (`autoformat.formatOnSave`).
 - To make AutoFormat the default formatter for a language, add for example
-  `"[rust]": { "editor.defaultFormatter": "autoformat.autoformat" }` to your settings.
+  `"[rust]": { "editor.defaultFormatter": "JohnK.autoformat" }` to your settings.
 - Errors (such as syntax errors) appear in the status bar and in the *AutoFormat* output
   channel. The document is left unchanged.
 - `autoformat.executablePath` lets you use your own build of the `autoformat` binary.
@@ -276,13 +276,26 @@ can find it (set `VSCODE_EXECUTABLE` to point to one); otherwise it downloads a 
 
 ## Releasing
 
-1. Update the version in `Cargo.toml` (`workspace.package.version`) and
-   `vscode/extension/package.json`.
-2. Push a tag such as `v0.1.0`. The `Release` workflow (`.github/workflows/release.yml`)
-   builds the binary for Windows (x64, arm64), macOS (x64, arm64) and Linux (x64, arm64,
-   static musl builds that also run on Alpine), and packages one `.vsix` per platform plus
-   a command line archive.
-3. Publish the `.vsix` files with `vsce publish --packagePath <file>` (one per platform).
+Releases are driven by the version number. The `Build & Release` workflow
+(`.github/workflows/release.yml`) runs on every push to `master`:
+
+- It always runs the tests (`.github/workflows/ci.yml`).
+- When the version in `vscode/extension/package.json` has no git tag yet, it builds the
+  binary for Windows (x64, arm64), macOS (x64, arm64) and Linux (x64, arm64, static
+  builds that also run on Alpine), packages one extension per platform, publishes them
+  to the VS Code Marketplace, and then creates the tag and a GitHub release with the
+  extension packages and command line archives.
+
+To release a new version:
+
+1. Raise the version in `vscode/extension/package.json` and in `Cargo.toml`
+   (`workspace.package.version`). The two must match.
+2. Push to `master`.
+
+Publishing needs a repository secret named `VSC_PERSONAL_TOKEN`: an Azure DevOps
+personal access token with the *Marketplace (Manage)* scope for the `JohnK` publisher.
+Without it the packages are still built, but nothing is published or tagged, so the next
+push tries again.
 
 To build a package by hand for one platform:
 

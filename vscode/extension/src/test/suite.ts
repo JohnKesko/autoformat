@@ -72,7 +72,7 @@ export async function run(): Promise<void> {
     assert.ok(folders && folders.length > 0, "a workspace folder is open");
     const folder = folders[0].uri.fsPath;
 
-    const extension = vscode.extensions.getExtension("autoformat.autoformat");
+    const extension = vscode.extensions.getExtension("JohnK.autoformat");
     assert.ok(extension, "the extension is installed");
     await extension.activate();
 

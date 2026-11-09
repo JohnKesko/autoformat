@@ -1,0 +1,4 @@
+# Keep LF line endings in every checkout, including Windows. Test fixtures compare
+# exact text.
+* text=auto eol=lf
+*.png binary

@@ -3,11 +3,16 @@
   "displayName": "AutoFormat",
   "description": "One formatter for Rust, TOML, TypeScript, JavaScript, C# and PowerShell. No other tools needed.",
   "version": "0.1.0",
-  "publisher": "autoformat",
+  "publisher": "JohnK",
   "license": "MIT",
+  "icon": "img/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/johnkesko/autoformat"
+    "url": "https://github.com/JohnKesko/autoformat"
+  },
+  "homepage": "https://github.com/JohnKesko/autoformat#readme",
+  "bugs": {
+    "url": "https://github.com/JohnKesko/autoformat/issues"
   },
   "engines": {
     "vscode": "^1.90.0"

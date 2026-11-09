@@ -11,7 +11,7 @@ import { ensureExecutable, resolveExecutable } from "./binary";
 import { autoformatLanguage, formatArguments, SUPPORTED_LANGUAGE_IDS } from "./languages";
 import { runAutoformat } from "./runner";
 
-const EXTENSION_ID = "autoformat.autoformat";
+const EXTENSION_ID = "JohnK.autoformat";
 const TIMEOUT_MS = 10000;
 
 let output: vscode.OutputChannel;
