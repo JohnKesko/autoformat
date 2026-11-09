@@ -65,8 +65,35 @@ fn configurations() -> Vec<Config> {
             ..Config::default()
         },
         Config {
+            blank_lines: false,
+            space_around_operators: false,
+            final_newline: false,
+            trim_trailing_whitespace: false,
+            ..Config::default()
+        },
+        Config {
+            column_width: 80,
+            line_ending: LineEnding::Crlf,
+            final_newline: false,
+            language_overrides: vec![(
+                "rust".to_string(),
+                autoformat_core::config::Overrides {
+                    space_around_operators: Some(false),
+                    blank_lines: Some(false),
+                    ..Default::default()
+                },
+            )],
+            ..Config::default()
+        },
+        Config {
             brace_style: BraceStyle::Allman,
-            language_brace_styles: vec![("csharp".to_string(), BraceStyle::SameLine)],
+            language_overrides: vec![(
+                "csharp".to_string(),
+                autoformat_core::config::Overrides {
+                    brace_style: Some(BraceStyle::SameLine),
+                    ..Default::default()
+                },
+            )],
             ..Config::default()
         },
     ]

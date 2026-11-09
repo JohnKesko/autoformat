@@ -25,6 +25,13 @@ pub struct PrintOptions {
     pub wrap_lines: bool,
     /// Where block braces go. `None` keeps them where they are.
     pub brace_style: Option<BraceStyle>,
+    /// Between declarations when one of them spans several lines: one empty line when
+    /// true, none when false.
+    pub blank_lines: bool,
+    /// End the output with a line break.
+    pub final_newline: bool,
+    /// Remove spaces and tabs at the end of lines (outside strings).
+    pub trim_trailing_whitespace: bool,
 }
 
 /// The smallest gap between code and an aligned trailing comment.
@@ -58,6 +65,8 @@ pub fn print(document: &LayoutDocument, options: &PrintOptions) -> String {
     if let Some(style) = options.brace_style {
         place_block_braces(document, &mut breaks, style);
     }
+    // Decided before wrapping, so that changing column_width never adds blank lines.
+    set_blank_lines_between_declarations(document, &mut breaks, options.blank_lines);
     if options.wrap_lines {
         wrap_long_lines(document, &mut breaks, options, &free_groups);
     }
@@ -121,6 +130,59 @@ fn place_block_braces(document: &LayoutDocument, breaks: &mut [usize], style: Br
             breaks[index] = 1;
         }
     }
+}
+
+/// Between two neighbouring declarations where either spans several lines: one empty
+/// line with `blank_lines = true`, no empty line with `false`.
+///
+/// Only one place is changed: the first line after the first declaration. Comments about
+/// the second declaration stay directly above it, and empty lines written further down
+/// stay as they are. Because both values change the same place, switching the setting
+/// back and forth always gives the same code for the same setting.
+fn set_blank_lines_between_declarations(
+    document: &LayoutDocument,
+    breaks: &mut [usize],
+    blank_lines: bool,
+) {
+    let tokens = &document.tokens;
+    for gap in &document.declaration_gaps {
+        let before_spans = spans_lines(document, breaks, gap.first_before, gap.last_before);
+        let after_spans = spans_lines(document, breaks, gap.first_after, gap.last_after);
+        if !before_spans && !after_spans {
+            continue;
+        }
+        // The first token after the first declaration that starts a line. A comment at the
+        // end of the declaration's last line, and directive lines like `#endregion`, belong
+        // to the first declaration and are skipped.
+        let mut at = gap.last_before + 1;
+        while at < gap.first_after {
+            let token = &tokens[at];
+            let is_directive = token.is_comment && !token.describes_next;
+            if breaks[at] >= 1 && !is_directive {
+                break;
+            }
+            at += 1;
+        }
+        if breaks[at] == 0 {
+            // Both declarations are on the same line. Lines are never split here.
+            continue;
+        }
+        if blank_lines {
+            breaks[at] = 2;
+        } else {
+            breaks[at] = 1;
+        }
+    }
+}
+
+/// Whether the tokens from `first` to `last` are printed on more than one line.
+fn spans_lines(document: &LayoutDocument, breaks: &[usize], first: usize, last: usize) -> bool {
+    for index in first..=last {
+        if (index > first && breaks[index] > 0) || document.tokens[index].is_multi_line() {
+            return true;
+        }
+    }
+    false
 }
 
 /// True when no line break separates the brackets of a group.
@@ -500,6 +562,7 @@ fn needs_space(previous: &LayoutToken, token: &LayoutToken) -> bool {
         Spacing::Space => true,
         Spacing::Keep => token.had_space_before,
         Spacing::NoSpace => token.had_space_before && would_merge(&previous.text, &token.text),
+        Spacing::Never => false,
     }
 }
 
@@ -660,8 +723,20 @@ fn render(document: &LayoutDocument, lines: &[Line], options: &PrintOptions) -> 
             let first_on_line = index == line.first;
             column = write_token(&mut output, token, line, first_on_line, column, options);
         }
+        if !options.trim_trailing_whitespace {
+            // Put back the spaces that ended this line in the source, if the line ended
+            // there in the source too.
+            let next = line.last + 1;
+            let source_line_ended =
+                next == document.tokens.len() || document.tokens[next].line_breaks_before > 0;
+            if source_line_ended {
+                output.push_str(&document.tokens[line.last].trailing_whitespace);
+            }
+        }
     }
-    output.push('\n');
+    if options.final_newline {
+        output.push('\n');
+    }
     output
 }
 
@@ -689,13 +764,21 @@ fn write_token(
     let mut last_line_width = 0;
     for (number, text_line) in token.text.split('\n').enumerate() {
         let printed = if number == 0 {
-            text_line.to_string()
+            if token.is_comment && options.trim_trailing_whitespace {
+                text_line.trim_end().to_string()
+            } else {
+                text_line.to_string()
+            }
         } else {
             output.push('\n');
             match mode {
                 MultiLine::Verbatim => text_line.to_string(),
                 MultiLine::StarAligned => {
-                    let content = text_line.trim();
+                    let content = if options.trim_trailing_whitespace {
+                        text_line.trim()
+                    } else {
+                        text_line.trim_start()
+                    };
                     if content.is_empty() {
                         String::new()
                     } else {
@@ -706,7 +789,8 @@ fn write_token(
                     if token.protected_lines.contains(&number) {
                         text_line.to_string()
                     } else {
-                        shift_line(text_line, shift, token.is_comment, options)
+                        let trim_end = token.is_comment && options.trim_trailing_whitespace;
+                        shift_line(text_line, shift, trim_end, options)
                     }
                 }
             }
@@ -757,6 +841,9 @@ mod tests {
             align_comments: true,
             wrap_lines: true,
             brace_style: None,
+            blank_lines: true,
+            final_newline: true,
+            trim_trailing_whitespace: true,
         }
     }
 
@@ -794,6 +881,7 @@ mod tests {
                 separators,
                 wrappable: true,
             }],
+            declaration_gaps: Vec::new(),
         }
     }
 
@@ -863,6 +951,7 @@ mod tests {
         let document = LayoutDocument {
             tokens,
             groups: Vec::new(),
+            declaration_gaps: Vec::new(),
         };
         assert_eq!(
             print(&document, &options()),

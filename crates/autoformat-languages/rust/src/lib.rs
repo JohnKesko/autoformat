@@ -40,7 +40,7 @@ static RULES: LanguageRules = LanguageRules {
         "shebang",
     ],
     transparent_kinds: &["where_clause", "else_clause"],
-    prefix_kinds: &["attribute_item", "inner_attribute_item"],
+    prefix_kinds: &["attribute_item"],
     wrappable_kinds: &[
         "arguments",
         "parameters",
@@ -80,6 +80,24 @@ static RULES: LanguageRules = LanguageRules {
         ("match_block", "match_expression"),
     ],
     brace_continuations: &[("else", "else_clause")],
+    declaration_containers: &["source_file", "declaration_list"],
+    declaration_kinds: &[
+        "function_item",
+        "function_signature_item",
+        "impl_item",
+        "trait_item",
+        "struct_item",
+        "enum_item",
+        "union_item",
+        "mod_item",
+        "macro_definition",
+        "const_item",
+        "static_item",
+        "type_item",
+        "use_declaration",
+        "foreign_mod_item",
+        "extern_crate_declaration",
+    ],
 };
 
 impl LanguageAdapter for RustLanguage {

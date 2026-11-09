@@ -1,15 +1,18 @@
 #![allow(dead_code)]
 use std::fmt::{self, Display};
 pub(crate) struct Wrapper<'a, T: Display + ?Sized> { inner: &'a T, count: usize }
+
 impl<'a, T: Display + ?Sized> Display for Wrapper<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}x{}", self.inner, self.count)
     }
 }
+
 macro_rules! square {
     ($x:expr) => { $x * $x };
     ($($x:expr),*) => { vec![$($x * $x),*] };
 }
+
 fn generic<T>(items: Vec<T>) -> Option<T> where T: Clone + Default, {
     let first = items.first().cloned();
     let closure = move || first.clone();
@@ -37,6 +40,7 @@ fn generic<T>(items: Vec<T>) -> Option<T> where T: Clone + Default, {
         })
         .next()
 }
+
 #[cfg(test)]
 mod tests {
     #[test]

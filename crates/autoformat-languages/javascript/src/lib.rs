@@ -40,6 +40,8 @@ static RULES: LanguageRules = LanguageRules {
     separators: &[","],
     block_braces: ecmascript::BLOCK_BRACES,
     brace_continuations: ecmascript::BRACE_CONTINUATIONS,
+    declaration_containers: &["program", "class_body"],
+    declaration_kinds: ecmascript::DECLARATION_KINDS,
 };
 
 impl LanguageAdapter for JavaScriptLanguage {

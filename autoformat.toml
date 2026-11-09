@@ -6,3 +6,7 @@ column_width = 140
 comment_alignment = true
 line_ending = "lf"
 brace_style = "same_line"
+blank_lines = true
+space_around_operators = true
+final_newline = true
+trim_trailing_whitespace = true

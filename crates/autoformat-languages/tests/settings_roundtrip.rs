@@ -118,6 +118,40 @@ fn setting_pairs() -> Vec<(&'static str, Config, Config)> {
                 ..base.clone()
             },
         ),
+        (
+            "final_newline true <-> false",
+            base.clone(),
+            Config {
+                final_newline: false,
+                ..base.clone()
+            },
+        ),
+        (
+            "blank_lines true <-> false",
+            base.clone(),
+            Config {
+                blank_lines: false,
+                ..base.clone()
+            },
+        ),
+        (
+            "space_around_operators true <-> false",
+            base.clone(),
+            Config {
+                space_around_operators: false,
+                ..base.clone()
+            },
+        ),
+        (
+            "blank_lines and space_around_operators false, allman <-> defaults",
+            base.clone(),
+            Config {
+                blank_lines: false,
+                space_around_operators: false,
+                brace_style: BraceStyle::Allman,
+                ..base.clone()
+            },
+        ),
     ]
 }
 
@@ -128,6 +162,18 @@ fn format(path: &Path, source: &str, config: &Config) -> String {
         Ok(formatted) => formatted.text,
         Err(error) => panic!("{}: {}", path.display(), error),
     }
+}
+
+/// `trim_trailing_whitespace = false` means "never remove spaces at the end of a line".
+/// There is nothing for it to put back, so it is checked on its own: turning it off
+/// changes nothing, and turning it on again gives the same result as before.
+fn trim_pair() -> (Config, Config) {
+    let on = Config::default();
+    let off = Config {
+        trim_trailing_whitespace: false,
+        ..Config::default()
+    };
+    (on, off)
 }
 
 #[test]
@@ -155,6 +201,33 @@ fn every_setting_can_be_changed_back() {
     assert!(
         failures.is_empty(),
         "settings that could not be changed back:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn trimming_can_be_turned_off_and_on_again() {
+    let (on, off) = trim_pair();
+    let mut failures = Vec::new();
+    let mut inputs: Vec<(PathBuf, String)> = Vec::new();
+    for path in fixture_files() {
+        let source = std::fs::read_to_string(&path).unwrap();
+        inputs.push((path, source));
+    }
+    for (name, source) in TRICKY_SOURCES {
+        inputs.push((PathBuf::from(name), source.to_string()));
+    }
+    for (path, source) in &inputs {
+        let with_on = format(path, source, &on);
+        let with_off = format(path, &with_on, &off);
+        let back = format(path, &with_off, &on);
+        if with_off != with_on || back != with_on {
+            failures.push(path.file_name().unwrap().to_string_lossy().to_string());
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "trim_trailing_whitespace changed code when turned off, or could not be turned on again:\n{}",
         failures.join("\n")
     );
 }

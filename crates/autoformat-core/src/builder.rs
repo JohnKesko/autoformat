@@ -11,7 +11,7 @@ use crate::context::{
     is_conditional_colon, is_operator_text, is_word_text, operator_position, Role, TokenContext,
     TIGHT_TOKENS,
 };
-use crate::layout::{Group, LayoutDocument, LayoutToken, MultiLine, Spacing};
+use crate::layout::{DeclarationGap, Group, LayoutDocument, LayoutToken, MultiLine, Spacing};
 use crate::spacing::common_spacing;
 
 /// Settings for building the layout.
@@ -21,6 +21,8 @@ pub struct BuildOptions {
     pub keep_spacing: bool,
     /// Used to measure tab characters in the original source.
     pub indent_size: usize,
+    /// When false, operators between two values get no spaces around them.
+    pub space_around_operators: bool,
 }
 
 /// A pair of matching brackets found in the token list.
@@ -77,11 +79,18 @@ pub fn build_layout(
             Spacing::Keep
         } else {
             let previous = &contexts[index - 1];
-            match adapter.spacing(previous, context) {
+            let spacing = match adapter.spacing(previous, context) {
                 Some(spacing) => spacing,
                 None => common_spacing(previous, context, rules),
+            };
+            if options.space_around_operators {
+                spacing
+            } else {
+                spacing_without_operator_spaces(spacing, &contexts, index)
             }
         };
+        token.trailing_whitespace = trailing_whitespace(source, &raw_tokens, index);
+        token.describes_next = token.is_comment && !context.kind.starts_with("preproc");
         token.opens_group = opens[index];
         token.closes_group = closes[index];
         token.column_zero = adapter.column_zero(context);
@@ -140,7 +149,187 @@ pub fn build_layout(
         });
     }
 
-    LayoutDocument { tokens, groups }
+    let declaration_gaps = find_declaration_gaps(tree, rules, &token_starts);
+    LayoutDocument {
+        tokens,
+        groups,
+        declaration_gaps,
+    }
+}
+
+/// With `space_around_operators = false`: no space on either side of an operator such
+/// as `=`, `+` or `&&` where `true` would put one. An operator that would run together
+/// with a neighbour (`a - -b` would become `a--b`) keeps the spaces on both sides.
+///
+/// The result never depends on how the code was spaced before, so switching the setting
+/// back and forth always gives the same code for the same setting.
+fn spacing_without_operator_spaces(
+    spacing: Spacing,
+    contexts: &[TokenContext],
+    index: usize,
+) -> Spacing {
+    if spacing != Spacing::Space {
+        return spacing;
+    }
+    let previous_is_operator = is_spaced_operator(&contexts[index - 1]);
+    let next_is_operator = is_spaced_operator(&contexts[index]);
+    if !previous_is_operator && !next_is_operator {
+        return spacing;
+    }
+    if previous_is_operator && operator_needs_spaces(contexts, index - 1) {
+        return Spacing::Space;
+    }
+    if next_is_operator && operator_needs_spaces(contexts, index) {
+        return Spacing::Space;
+    }
+    Spacing::Never
+}
+
+/// Operators between two values: `=`, `+=`, `+`, `==`, `&&`, `|`, `? :` and so on.
+/// Not operators that belong to one value (`-x`, `!done`, `i++`), and not the arrows
+/// `->` and `=>`.
+fn is_spaced_operator(context: &TokenContext) -> bool {
+    if context.text == "->" || context.text == "=>" {
+        return false;
+    }
+    match context.role {
+        Role::Infix => true,
+        Role::Other => match context.node {
+            Some(node) => !node.is_named() && is_operator_text(context.text),
+            None => false,
+        },
+        _ => false,
+    }
+}
+
+/// Whether the operator would run together with the token before or after it.
+fn operator_needs_spaces(contexts: &[TokenContext], operator: usize) -> bool {
+    let text = contexts[operator].text;
+    if operator > 0 && could_run_together(contexts[operator - 1].text, text) {
+        return true;
+    }
+    if operator + 1 < contexts.len() && could_run_together(text, contexts[operator + 1].text) {
+        return true;
+    }
+    false
+}
+
+/// Two characters that, written next to each other, start a longer operator or a
+/// comment. `a - -b` must not become `a--b`, `Vec<u8> = x` must not become `Vec<u8>= x`,
+/// and `a / /re/` must not start a `//` comment.
+const RUN_TOGETHER_PAIRS: &[&str] = &[
+    "++", "--", "**", "//", "/*", "*/", "==", "!=", "<=", ">=", "=>", "->", "<-", "&&", "||", "??",
+    "?.", "?[", "::", "..", "<<", ">>", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "!!", "|>",
+    "<>", "?:",
+];
+
+/// Whether `left` followed directly by `right` could be read as a different token.
+fn could_run_together(left: &str, right: &str) -> bool {
+    let last = match left.chars().last() {
+        Some(character) => character,
+        None => return false,
+    };
+    let first = match right.chars().next() {
+        Some(character) => character,
+        None => return false,
+    };
+    let pair = format!("{}{}", last, first);
+    RUN_TOGETHER_PAIRS.contains(&pair.as_str())
+}
+
+/// The spaces and tabs between a token and the end of its line in the source, if a line
+/// break follows the token.
+fn trailing_whitespace(source: &str, tokens: &[RawToken], index: usize) -> String {
+    let end = tokens[index].end;
+    let next_start = match tokens.get(index + 1) {
+        Some(next) => next.start,
+        None => source.len(),
+    };
+    let gap = &source[end..next_start];
+    match gap.find('\n') {
+        Some(newline) => gap[..newline].trim_end_matches('\r').to_string(),
+        None => String::new(),
+    }
+}
+
+/// Finds neighbouring declarations inside the language's declaration containers.
+fn find_declaration_gaps(
+    tree: &SyntaxTree,
+    rules: &LanguageRules,
+    token_starts: &[usize],
+) -> Vec<DeclarationGap> {
+    let mut gaps = Vec::new();
+    if rules.declaration_kinds.is_empty() {
+        return gaps;
+    }
+    let mut stack = vec![tree.root()];
+    while let Some(node) = stack.pop() {
+        let mut cursor = node.walk();
+        let mut children = Vec::new();
+        if cursor.goto_first_child() {
+            loop {
+                children.push(cursor.node());
+                if !cursor.goto_next_sibling() {
+                    break;
+                }
+            }
+        }
+        if rules.declaration_containers.contains(&node.kind()) {
+            add_gaps_between_children(&children, rules, token_starts, &mut gaps);
+        }
+        for child in children {
+            if child.child_count() > 0 && !rules.is_atomic(child) {
+                stack.push(child);
+            }
+        }
+    }
+    gaps.sort_by_key(|gap| gap.first_after);
+    gaps
+}
+
+fn add_gaps_between_children(
+    children: &[Node],
+    rules: &LanguageRules,
+    token_starts: &[usize],
+    gaps: &mut Vec<DeclarationGap>,
+) {
+    // (kind, first token, last token) of each child. Attributes such as Rust's
+    // `#[test]` belong to the declaration after them.
+    let mut items: Vec<(&str, usize, usize)> = Vec::new();
+    let mut pending_attribute_start: Option<usize> = None;
+    for child in children {
+        if !child.is_named() || child.is_extra() || child.end_byte() <= child.start_byte() {
+            continue;
+        }
+        let first = token_starts.partition_point(|&start| start < child.start_byte());
+        let after_last = token_starts.partition_point(|&start| start < child.end_byte());
+        if after_last == 0 || first >= after_last {
+            continue;
+        }
+        let last = after_last - 1;
+        if rules.prefix_kinds.contains(&child.kind()) {
+            if pending_attribute_start.is_none() {
+                pending_attribute_start = Some(first);
+            }
+            continue;
+        }
+        let first = pending_attribute_start.take().unwrap_or(first);
+        items.push((child.kind(), first, last));
+    }
+    for pair in items.windows(2) {
+        let (kind_before, first_before, last_before) = pair[0];
+        let (kind_after, first_after, last_after) = pair[1];
+        let is_declaration = rules.declaration_kinds.contains(&kind_before)
+            || rules.declaration_kinds.contains(&kind_after);
+        if is_declaration {
+            gaps.push(DeclarationGap {
+                first_before,
+                last_before,
+                first_after,
+                last_after,
+            });
+        }
+    }
 }
 
 /// Finds matching bracket tokens. Two brackets match when they are children of the same

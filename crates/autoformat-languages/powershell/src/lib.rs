@@ -87,6 +87,14 @@ static RULES: LanguageRules = LanguageRules {
         ("while", "do_statement"),
         ("until", "do_statement"),
     ],
+    declaration_containers: &["statement_list", "class_statement"],
+    declaration_kinds: &[
+        "function_statement",
+        "class_statement",
+        "enum_statement",
+        "class_method_definition",
+        "class_property_definition",
+    ],
 };
 
 /// Keywords followed by a space before `{`.
@@ -193,6 +201,10 @@ fn powershell_spacing(previous: &TokenContext, next: &TokenContext) -> Spacing {
     // Brackets: `(a)`, `@(a)`, `$(a)`, `{ a }`, `@{ a }`, `{}`.
     if previous.role == Role::Open {
         if next.role == Role::Close {
+            // `{ }` and `{}` keep their spacing; `()` and `@()` lose inner spaces.
+            if next.is("}") {
+                return Spacing::Keep;
+            }
             return Spacing::NoSpace;
         }
         if previous.text.ends_with('{') {

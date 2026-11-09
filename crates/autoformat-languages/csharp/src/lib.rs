@@ -128,6 +128,26 @@ static RULES: LanguageRules = LanguageRules {
         ("finally", "finally_clause"),
         ("while", "do_statement"),
     ],
+    declaration_containers: &["compilation_unit", "declaration_list"],
+    declaration_kinds: &[
+        "namespace_declaration",
+        "class_declaration",
+        "struct_declaration",
+        "interface_declaration",
+        "record_declaration",
+        "enum_declaration",
+        "delegate_declaration",
+        "method_declaration",
+        "constructor_declaration",
+        "destructor_declaration",
+        "property_declaration",
+        "indexer_declaration",
+        "event_declaration",
+        "event_field_declaration",
+        "field_declaration",
+        "operator_declaration",
+        "conversion_operator_declaration",
+    ],
 };
 
 impl LanguageAdapter for CSharpLanguage {

@@ -37,6 +37,10 @@ column_width = 140
 comment_alignment = true
 line_ending = "lf"
 brace_style = "same_line"
+blank_lines = true
+space_around_operators = true
+final_newline = true
+trim_trailing_whitespace = true
 ```
 
 4. Save a file. It is formatted automatically.
@@ -56,11 +60,15 @@ brace_style = "same_line"    # every language uses same_line ...
 
 [formatting.csharp]
 brace_style = "allman"       # ... except C#, which uses allman
+
+[formatting.powershell]
+indent_size = 2              # PowerShell is indented 2, everything else 4
 ```
 
+- Every setting can be overridden.
+- A language table only changes the settings you put in it. The rest come from `[formatting]`.
 - Languages without their own table use the settings under `[formatting]`.
 - Language names: `rust`, `toml`, `javascript`, `typescript` (also used for `.tsx`), `csharp`, `powershell`.
-- Right now `brace_style` is the only setting you can override.
 
 ## What each setting does
 
@@ -188,14 +196,99 @@ These never move:
 
 A block written on one line, like `if (x) { return; }`, stays on one line.
 
+```
+# blank_lines - One empty line between functions, classes, methods and other declarations
+blank_lines = true
+```
+
+```rust
+struct Point {
+    x: i32,
+}
+
+impl Point {
+    fn new() -> Point {
+        Point { x: 0 }
+    }
+
+    fn x(&self) -> i32 {
+        self.x
+    }
+}
+
+const A: u8 = 1;
+const B: u8 = 2;
+```
+
+- The empty line is only added when one of the two takes up more than one line. Short one-liners, like the two `const` lines, stay together.
+- Comments and attributes above a declaration (`/// docs`, `#[test]`, `[Fact]`, `@Component`) stay with it. The empty line goes above them.
+- Nothing is added inside function bodies. That is your code, and you decide where the empty lines go.
+- Several empty lines in a row become one.
+- `false`: no empty line between declarations that take up more than one line. Empty lines inside function bodies and between one-liners are still left as you wrote them.
+
+```
+# space_around_operators - One space on each side of operators like = + - * / == && ||
+space_around_operators = true
+```
+
+```js
+// before
+const result=a+b*10;
+
+// after
+const result = a + b * 10;
+```
+
+- Never inside strings, comments, regular expressions or template text.
+- Operators that belong to one value stay attached to it: `-x`, `!done`, `i++`, `&value`.
+- `false`: no spaces around operators.
+
+```js
+// space_around_operators = false
+const result=a+b*10;
+```
+
+- With `false`, a space stays where two signs would otherwise run together and mean something else. `a - -b` keeps its spaces, because `a--b` is different code.
+- The arrows `=>` and `->` always keep their spaces.
+- In TOML, the `=` between a key and its value counts as an operator too.
+
+```
+# final_newline - End the file with one line break
+final_newline = true
+```
+
+- `true`: the file ends with exactly one line break. Extra empty lines at the end are removed.
+- `false`: the file ends right after the last character, with no line break.
+- An empty file stays empty.
+
+```
+# trim_trailing_whitespace - Remove spaces and tabs at the end of lines
+trim_trailing_whitespace = true
+```
+
+- Never inside strings. Multi-line strings, raw strings, template strings, here-strings and C# `@"..."` strings keep every space.
+- `false`: spaces at the end of a line are left as you wrote them.
+
+### Which declarations blank_lines looks at
+
+| Language | Declarations |
+|---|---|
+| Rust | Functions, structs, enums, traits, `impl`, `mod`, `use`, `const`, `static` and macros. At the top of the file and inside `mod`, `impl` and `trait`. |
+| C# | Namespaces, classes, structs, interfaces, records, enums, methods, constructors, properties, fields and events |
+| JavaScript / TypeScript | Functions, classes and `export` at the top of the file, and methods and fields inside classes. TypeScript also: interfaces, types, enums and namespaces. `const` and `let` are normal code and are left alone. |
+| PowerShell | Functions, classes and enums, and methods and properties inside classes |
+| TOML | Tables: `[table]` and `[[array]]` |
+
 ## Changing settings
 
 You can change any setting and change it back later. Formatting with the old setting again gives exactly the same result as before, so you are never stuck with an earlier choice.
 
+One small exception: `trim_trailing_whitespace = false` means "don't remove spaces at the end of lines". It can't bring back spaces that were already removed, because there is nothing left to put back.
+
 ## What it never does
 
 - It never adds, removes or reorders anything. Commas, semicolons, quotes and parentheses stay exactly as you wrote them. Only spaces and line breaks change.
-- It never changes the inside of strings or comments.
+- It never changes the inside of strings or comments. The only exception: spaces at the end of a comment line are removed (see `trim_trailing_whitespace`).
 - It never joins lines you split, except in two cases: lists in `( )` and `[ ]` that fit within `column_width` are put back on one line, and `brace_style = "same_line"` moves a `{` up to the line before it.
 - It never formats a file that has syntax errors.
 - It never moves a comment to a different place in the code.
@@ -307,7 +400,7 @@ Good to know:
 - **TOML**: keys inside tables are not indented.
 - **JavaScript / TypeScript**: JSX markup is kept as written, it is only moved left or right as a whole. The braces of `namespace X { }` never move.
 - **C#**: `#if`, `#else` and `#endif` start at the left edge. `#region` lines are indented like code.
-- **PowerShell**: PowerShell cares about spaces, so only safe spacing is changed (after commas, around `=` and `|`, after `if`, inside brackets).
+- **PowerShell**: PowerShell cares about spaces, so only safe spacing is changed (after commas, around `=` and `|`, after `if`, inside brackets). Other operators like `+`, `-` and `-eq` are left as you wrote them, because in PowerShell a space can change what they mean.
 - Spaces used to line up `=` signs are reduced to one.
 
 ## For developers

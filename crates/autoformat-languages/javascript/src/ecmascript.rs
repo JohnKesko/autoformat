@@ -63,6 +63,17 @@ pub const BLOCK_BRACES: &[(&str, &str)] = &[
     ("switch_body", "switch_statement"),
 ];
 
+/// Declarations that get a blank line around them when they span several lines.
+/// `const` and `let` are not listed: in scripts they are ordinary code.
+pub const DECLARATION_KINDS: &[&str] = &[
+    "function_declaration",
+    "generator_function_declaration",
+    "class_declaration",
+    "method_definition",
+    "field_definition",
+    "export_statement",
+];
+
 /// Keywords that continue a statement after a block's closing brace.
 pub const BRACE_CONTINUATIONS: &[(&str, &str)] = &[
     ("else", "else_clause"),

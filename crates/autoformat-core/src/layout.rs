@@ -21,6 +21,9 @@ pub enum Spacing {
     NoSpace,
     /// Keep what the source had: one space if there was any space, otherwise none.
     Keep,
+    /// Never a space, whatever the source had. Only used where the builder has checked
+    /// that the two tokens cannot run together into a different token.
+    Never,
 }
 
 /// How a token that spans several lines (a block comment, a multi-line string...) is
@@ -82,6 +85,12 @@ pub struct LayoutToken {
     /// The indentation width (in columns) of the source line this token starts on. Used
     /// to shift multi-line tokens.
     pub original_line_indent: usize,
+    /// Spaces and tabs that followed this token at the end of its line in the source.
+    /// Printed again only when `trim_trailing_whitespace` is off.
+    pub trailing_whitespace: String,
+    /// A comment that describes the code after it, so a blank line added before that
+    /// code goes above the comment. False for directive lines such as C# `#region`.
+    pub describes_next: bool,
 }
 
 impl LayoutToken {
@@ -103,6 +112,8 @@ impl LayoutToken {
             multi_line: MultiLine::Verbatim,
             protected_lines: Vec::new(),
             original_line_indent: 0,
+            trailing_whitespace: String::new(),
+            describes_next: false,
         }
     }
 
@@ -125,9 +136,21 @@ pub struct Group {
     pub wrappable: bool,
 }
 
+/// Two neighbouring declarations (functions, classes, methods...), given as token ranges.
+/// With `blank_lines` on, the printer puts one blank line between them when one of them
+/// spans several lines.
+#[derive(Clone, Debug)]
+pub struct DeclarationGap {
+    pub first_before: usize,
+    pub last_before: usize,
+    pub first_after: usize,
+    pub last_after: usize,
+}
+
 /// A whole document ready for printing.
 #[derive(Clone, Debug, Default)]
 pub struct LayoutDocument {
     pub tokens: Vec<LayoutToken>,
     pub groups: Vec<Group>,
+    pub declaration_gaps: Vec<DeclarationGap>,
 }

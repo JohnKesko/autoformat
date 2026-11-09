@@ -26,9 +26,13 @@ pub fn common_spacing(
         return Spacing::NoSpace;
     }
 
-    // Closing brackets: `(a)`, `[a]`, `{ a }`, `{}`.
+    // Closing brackets: `(a)`, `[a]`, `{ a }`. An empty `{ }` or `{}` keeps its spacing:
+    // in C# `is { }` is a pattern, and whitespace is never normalized blindly.
     if next.role == Close {
-        if next.is("}") && previous.role != Open {
+        if next.is("}") {
+            if previous.role == Open {
+                return Spacing::Keep;
+            }
             return Spacing::Space;
         }
         return Spacing::NoSpace;

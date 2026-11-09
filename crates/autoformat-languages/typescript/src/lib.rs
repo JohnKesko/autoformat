@@ -70,6 +70,23 @@ static RULES: LanguageRules = LanguageRules {
         ("switch_body", "switch_statement"),
     ],
     brace_continuations: ecmascript::BRACE_CONTINUATIONS,
+    declaration_containers: &["program", "class_body"],
+    declaration_kinds: &[
+        "function_declaration",
+        "generator_function_declaration",
+        "class_declaration",
+        "abstract_class_declaration",
+        "method_definition",
+        "public_field_definition",
+        "abstract_method_signature",
+        "interface_declaration",
+        "type_alias_declaration",
+        "enum_declaration",
+        "internal_module",
+        "module",
+        "ambient_declaration",
+        "export_statement",
+    ],
 };
 
 /// Spacing rules for TypeScript, falling back to the shared ECMAScript rules.

@@ -1,5 +1,6 @@
 import React from 'react';
 type Props = { title: string; items: string[] };
+
 export const List: React.FC<Props> = ({ title, items }) => {
     const rows = items.map((item, index) =>
         <li key={index} className="row">
@@ -16,4 +17,5 @@ export const List: React.FC<Props> = ({ title, items }) => {
         </section>
     );
 };
+
 function generic<T,>(value: T): T { return value; }

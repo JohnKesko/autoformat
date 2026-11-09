@@ -22,9 +22,12 @@ fn allman() -> Config {
 #[test]
 fn special_strings_are_untouched() {
     let source = "class A\n{\n    string a = $\"{x,5}  {y:N2}\";\n    string b = @\"C:\\path  \"\"q\"\"\";\n    string c = \"\"\"\n      raw  text\n      \"\"\";\n}\n";
+    // The strings are unchanged. The field whose raw string spans several lines gets a
+    // blank line before it (blank_lines), but nothing inside the string moves.
+    let expected = "class A\n{\n    string a = $\"{x,5}  {y:N2}\";\n    string b = @\"C:\\path  \"\"q\"\"\";\n\n    string c = \"\"\"\n      raw  text\n      \"\"\";\n}\n";
     assert_eq!(
         format_or_panic(&CSharpLanguage::new(), source, &allman()),
-        source
+        expected
     );
 }
 

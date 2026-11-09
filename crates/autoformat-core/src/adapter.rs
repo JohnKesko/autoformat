@@ -47,6 +47,12 @@ pub struct LanguageRules {
     /// Keywords that continue a statement after a block's closing brace, as pairs of
     /// (keyword, kind of the keyword's parent node): `("else", "else_clause")`.
     pub brace_continuations: &'static [(&'static str, &'static str)],
+    /// Nodes whose children are declarations side by side: a file, a class body...
+    /// Function bodies are not listed, so blank lines inside code are never touched.
+    pub declaration_containers: &'static [&'static str],
+    /// Declarations (functions, methods, classes...). With `blank_lines` on, one blank
+    /// line separates a declaration from its neighbours when either spans several lines.
+    pub declaration_kinds: &'static [&'static str],
 }
 
 impl LanguageRules {

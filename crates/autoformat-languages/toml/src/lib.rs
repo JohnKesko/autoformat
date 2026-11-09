@@ -38,6 +38,9 @@ static RULES: LanguageRules = LanguageRules {
     // TOML has no code blocks: braces are inline tables, which never move.
     block_braces: &[],
     brace_continuations: &[],
+    // A blank line before each table, when the table or what comes before it spans lines.
+    declaration_containers: &["document"],
+    declaration_kinds: &["table", "table_array_element"],
 };
 
 impl LanguageAdapter for TomlLanguage {

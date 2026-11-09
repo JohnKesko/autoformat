@@ -113,13 +113,15 @@ pub fn format_source(
         return Err(FormatError::Syntax(error));
     }
 
-    let brace_style = config.brace_style_for(adapter.config_name());
+    // The [formatting] settings with this language's own table applied.
+    let config = &config.for_language(adapter.config_name());
     let mut problem = String::new();
     let mut notes = Vec::new();
     for attempt in &ATTEMPTS {
         let build_options = BuildOptions {
             keep_spacing: attempt.keep_spacing,
             indent_size: config.indent_size,
+            space_around_operators: config.space_around_operators,
         };
         let print_options = PrintOptions {
             indent_size: config.indent_size,
@@ -128,10 +130,13 @@ pub fn format_source(
             align_comments: config.comment_alignment,
             wrap_lines: attempt.wrap_lines,
             brace_style: if attempt.place_braces {
-                Some(brace_style)
+                Some(config.brace_style)
             } else {
                 None
             },
+            blank_lines: config.blank_lines,
+            final_newline: config.final_newline,
+            trim_trailing_whitespace: config.trim_trailing_whitespace,
         };
         let document = build_layout(&tree, adapter, &build_options);
         let printed = print(&document, &print_options);

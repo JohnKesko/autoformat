@@ -14,6 +14,15 @@ fn config(style: BraceStyle) -> Config {
     }
 }
 
+/// For examples written without empty lines between declarations.
+fn compact(style: BraceStyle) -> Config {
+    Config {
+        brace_style: style,
+        blank_lines: false,
+        ..Config::default()
+    }
+}
+
 fn format(extension: &str, source: &str, config: &Config) -> String {
     let languages = Languages::new();
     let adapter = languages.by_extension(extension).unwrap();
@@ -324,23 +333,19 @@ class A {
 ";
     // Only the `{` of `class A` is a code block. Everything else stays put.
     let allman = source.replacen("class A {\n", "class A\n{\n", 1);
-    check("cs", BraceStyle::SameLine, source, source);
-    check("cs", BraceStyle::Allman, source, &allman);
+    check_with("cs", &compact(BraceStyle::SameLine), source, source);
+    check_with("cs", &compact(BraceStyle::Allman), source, &allman);
 }
 
 #[test]
 fn csharp_single_line_blocks_stay_on_one_line() {
+    // An empty block keeps its spacing: `{ }` stays `{ }` and `{}` stays `{}`.
     let source =
-        "class A {\n    void F() { Run(); }\n    int G() { return 1; }\n    void Empty() { }\n}\n";
+        "class A {\n    void F() { Run(); }\n    int G() { return 1; }\n    void Empty() { }\n    void Tight() {}\n}\n";
     let allman =
-        "class A\n{\n    void F() { Run(); }\n    int G() { return 1; }\n    void Empty() {}\n}\n";
+        "class A\n{\n    void F() { Run(); }\n    int G() { return 1; }\n    void Empty() { }\n    void Tight() {}\n}\n";
     check("cs", BraceStyle::Allman, source, allman);
-    check(
-        "cs",
-        BraceStyle::SameLine,
-        allman,
-        "class A {\n    void F() { Run(); }\n    int G() { return 1; }\n    void Empty() {}\n}\n",
-    );
+    check("cs", BraceStyle::SameLine, allman, source);
 }
 
 #[test]
@@ -547,8 +552,8 @@ type Point = {
     y: number;
 };
 ";
-    check("ts", BraceStyle::Allman, source, expected);
-    check("ts", BraceStyle::SameLine, expected, source);
+    check_with("ts", &compact(BraceStyle::Allman), source, expected);
+    check_with("ts", &compact(BraceStyle::SameLine), expected, source);
 }
 
 #[test]
