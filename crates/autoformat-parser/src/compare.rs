@@ -13,6 +13,9 @@ use crate::tree::SyntaxTree;
 /// - `text_matches(node, original_text, formatted_text)`: decides whether the text of a
 ///   leaf (or atomic node) is unchanged. The formatting engine uses this to allow
 ///   re-indented comments, for example.
+/// - `is_wrapper(node)`: this node only wraps its single child and adds no meaning, so
+///   the comparison looks at the child instead. Needed where a grammar wraps the same
+///   code in extra nodes depending on the whitespace around it.
 ///
 /// Returns a description of the first difference when the trees differ.
 pub fn compare_trees(
@@ -20,12 +23,14 @@ pub fn compare_trees(
     formatted: &SyntaxTree,
     is_atomic: &dyn Fn(Node) -> bool,
     text_matches: &dyn Fn(Node, &str, &str) -> bool,
+    is_wrapper: &dyn Fn(Node) -> bool,
 ) -> Result<(), String> {
     let checker = Checker {
         original,
         formatted,
         is_atomic,
         text_matches,
+        is_wrapper,
     };
     checker.compare(original.root(), formatted.root())
 }
@@ -35,10 +40,26 @@ struct Checker<'a> {
     formatted: &'a SyntaxTree,
     is_atomic: &'a dyn Fn(Node) -> bool,
     text_matches: &'a dyn Fn(Node, &str, &str) -> bool,
+    is_wrapper: &'a dyn Fn(Node) -> bool,
 }
 
 impl Checker<'_> {
+    /// Steps into wrapper nodes until a node with a meaning of its own is reached.
+    fn without_wrappers<'tree>(&self, tree: &'tree SyntaxTree, node: Node<'tree>) -> Node<'tree> {
+        let mut current = node;
+        while (self.is_wrapper)(current) && !(self.is_atomic)(current) {
+            let inner = children(tree, current);
+            if inner.len() != 1 {
+                break;
+            }
+            current = inner[0];
+        }
+        current
+    }
+
     fn compare(&self, left: Node, right: Node) -> Result<(), String> {
+        let left = self.without_wrappers(self.original, left);
+        let right = self.without_wrappers(self.formatted, right);
         let line = left.start_position().row + 1;
         if left.kind_id() != right.kind_id() || left.is_named() != right.is_named() {
             return Err(format!(

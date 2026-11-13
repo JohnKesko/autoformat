@@ -14,6 +14,7 @@
 //! space_around_operators = true
 //! final_newline = true
 //! trim_trailing_whitespace = true
+//! continuation_indent = false
 //!
 //! [formatting.csharp]
 //! brace_style = "allman"
@@ -127,6 +128,10 @@ pub struct Config {
     pub final_newline: bool,
     /// Remove spaces and tabs at the end of lines (never inside strings).
     pub trim_trailing_whitespace: bool,
+    /// When a statement goes on after a block in its middle (PowerShell:
+    /// `... | ForEach-Object { ... } | ...`): indent that block and the rest of the
+    /// statement one extra level, so the statement's first line stands out.
+    pub continuation_indent: bool,
     /// Settings from `[formatting.<language>]` tables, in the order of
     /// [`LANGUAGE_SECTIONS`].
     pub language_overrides: Vec<(String, Overrides)>,
@@ -146,6 +151,7 @@ pub struct Overrides {
     pub space_around_operators: Option<bool>,
     pub final_newline: Option<bool>,
     pub trim_trailing_whitespace: Option<bool>,
+    pub continuation_indent: Option<bool>,
 }
 
 impl Overrides {
@@ -180,6 +186,9 @@ impl Overrides {
         }
         if let Some(value) = self.trim_trailing_whitespace {
             config.trim_trailing_whitespace = value;
+        }
+        if let Some(value) = self.continuation_indent {
+            config.continuation_indent = value;
         }
     }
 
@@ -216,6 +225,9 @@ impl Overrides {
         if let Some(value) = self.trim_trailing_whitespace {
             lines.push(format!("trim_trailing_whitespace = {}", value));
         }
+        if let Some(value) = self.continuation_indent {
+            lines.push(format!("continuation_indent = {}", value));
+        }
         lines
     }
 }
@@ -248,6 +260,7 @@ impl Default for Config {
             space_around_operators: true,
             final_newline: true,
             trim_trailing_whitespace: true,
+            continuation_indent: false,
             language_overrides: Vec::new(),
         }
     }
@@ -275,6 +288,7 @@ impl fmt::Display for Config {
             "trim_trailing_whitespace = {}",
             self.trim_trailing_whitespace
         )?;
+        writeln!(f, "continuation_indent = {}", self.continuation_indent)?;
         for (language, overrides) in &self.language_overrides {
             let lines = overrides.lines();
             if lines.is_empty() {
@@ -330,6 +344,7 @@ struct FormattingTable {
     space_around_operators: Option<bool>,
     final_newline: Option<bool>,
     trim_trailing_whitespace: Option<bool>,
+    continuation_indent: Option<bool>,
     rust: Option<SettingsTable>,
     toml: Option<SettingsTable>,
     javascript: Option<SettingsTable>,
@@ -352,6 +367,7 @@ struct SettingsTable {
     space_around_operators: Option<bool>,
     final_newline: Option<bool>,
     trim_trailing_whitespace: Option<bool>,
+    continuation_indent: Option<bool>,
 }
 
 /// Parses and validates the text of an `autoformat.toml` file.
@@ -383,6 +399,7 @@ pub fn parse_config(text: &str) -> Result<Config, ConfigError> {
         space_around_operators: table.space_around_operators,
         final_newline: table.final_newline,
         trim_trailing_whitespace: table.trim_trailing_whitespace,
+        continuation_indent: table.continuation_indent,
     };
     read_settings(&global, "")?.apply_to(&mut config);
 
@@ -472,6 +489,7 @@ fn read_settings(table: &SettingsTable, prefix: &str) -> Result<Overrides, Confi
     overrides.space_around_operators = table.space_around_operators;
     overrides.final_newline = table.final_newline;
     overrides.trim_trailing_whitespace = table.trim_trailing_whitespace;
+    overrides.continuation_indent = table.continuation_indent;
     Ok(overrides)
 }
 
@@ -588,17 +606,19 @@ mod tests {
         assert!(config.space_around_operators);
         assert!(config.final_newline);
         assert!(config.trim_trailing_whitespace);
+        assert!(!config.continuation_indent);
         assert!(config.language_overrides.is_empty());
     }
 
     #[test]
     fn reads_every_option() {
-        let text = "[formatting]\nindent_size = 2\nindent_style = \"tabs\"\ncolumn_width = 80\ncomment_alignment = false\nline_ending = \"crlf\"\nbrace_style = \"gnu\"\nblank_lines = false\nspace_around_operators = false\nfinal_newline = false\ntrim_trailing_whitespace = false\n";
+        let text = "[formatting]\nindent_size = 2\nindent_style = \"tabs\"\ncolumn_width = 80\ncomment_alignment = false\nline_ending = \"crlf\"\nbrace_style = \"gnu\"\nblank_lines = false\nspace_around_operators = false\nfinal_newline = false\ntrim_trailing_whitespace = false\ncontinuation_indent = true\n";
         let config = parse_config(text).unwrap();
         assert!(!config.blank_lines);
         assert!(!config.space_around_operators);
         assert!(!config.final_newline);
         assert!(!config.trim_trailing_whitespace);
+        assert!(config.continuation_indent);
         assert_eq!(config.indent_size, 2);
         assert_eq!(config.indent_style, IndentStyle::Tabs);
         assert_eq!(config.column_width, 80);
@@ -696,7 +716,7 @@ mod tests {
 
     #[test]
     fn every_option_can_be_overridden_per_language() {
-        let text = "[formatting]\nindent_size = 4\nblank_lines = true\n\n[formatting.toml]\nindent_size = 2\nindent_style = \"tabs\"\ncolumn_width = 100\ncomment_alignment = false\nline_ending = \"crlf\"\nbrace_style = \"allman\"\nblank_lines = false\nspace_around_operators = false\nfinal_newline = false\ntrim_trailing_whitespace = false\n";
+        let text = "[formatting]\nindent_size = 4\nblank_lines = true\n\n[formatting.toml]\nindent_size = 2\nindent_style = \"tabs\"\ncolumn_width = 100\ncomment_alignment = false\nline_ending = \"crlf\"\nbrace_style = \"allman\"\nblank_lines = false\nspace_around_operators = false\nfinal_newline = false\ntrim_trailing_whitespace = false\ncontinuation_indent = true\n";
         let config = parse_config(text).unwrap();
         let toml = config.for_language("toml");
         assert_eq!(toml.indent_size, 2);
@@ -709,6 +729,7 @@ mod tests {
         assert!(!toml.space_around_operators);
         assert!(!toml.final_newline);
         assert!(!toml.trim_trailing_whitespace);
+        assert!(toml.continuation_indent);
         // Other languages keep the [formatting] values.
         let rust = config.for_language("rust");
         assert_eq!(rust.indent_size, 4);
@@ -725,6 +746,7 @@ mod tests {
         assert_eq!(csharp.indent_size, 3);
         assert!(!csharp.final_newline);
         assert!(csharp.trim_trailing_whitespace);
+        assert!(!csharp.continuation_indent);
     }
 
     #[test]
@@ -760,6 +782,7 @@ mod tests {
             space_around_operators: false,
             final_newline: false,
             trim_trailing_whitespace: false,
+            continuation_indent: true,
             language_overrides: vec![
                 (
                     "rust".to_string(),

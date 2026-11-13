@@ -143,6 +143,14 @@ fn setting_pairs() -> Vec<(&'static str, Config, Config)> {
             },
         ),
         (
+            "continuation_indent false <-> true",
+            base.clone(),
+            Config {
+                continuation_indent: true,
+                ..base.clone()
+            },
+        ),
+        (
             "blank_lines and space_around_operators false, allman <-> defaults",
             base.clone(),
             Config {
@@ -243,6 +251,7 @@ const TRICKY_SOURCES: &[(&str, &str)] = &[
     ("g.cs", "class A\n{\n    void Run(int first, int second, int third, int fourth, int fifth, int sixth) { Go(first, second); }\n}\n"),
     ("h.toml", "values = [\"alpha\", \"beta\", \"gamma\", \"delta\", \"epsilon\", \"zeta\", \"eta\", \"theta\"]\n"),
     ("i.ps1", "$result = $client.Invoke($firstArgument, $secondArgument, $thirdArgument, $fourth)\n"),
+    ("j.ps1", "function Show-It {\n    Get-A | ForEach-Object {\n        Get-B | Where-Object {\n            $_.Ok\n        } | Select-Object N\n    } | Where-Object {\n        $_\n    } | Out-Null\n    Get-C | ForEach-Object {\n        $_\n    }\n}\n"),
 ];
 
 #[test]

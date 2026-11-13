@@ -32,6 +32,9 @@ pub struct PrintOptions {
     pub final_newline: bool,
     /// Remove spaces and tabs at the end of lines (outside strings).
     pub trim_trailing_whitespace: bool,
+    /// Indent a block in the middle of a statement, and the rest of that statement, one
+    /// extra level.
+    pub continuation_indent: bool,
 }
 
 /// The smallest gap between code and an aligned trailing comment.
@@ -285,15 +288,26 @@ fn build_lines(document: &LayoutDocument, breaks: &[usize], options: &PrintOptio
                     current_level = level;
                 }
             }
-            if tokens[index].opens_group.is_some() {
-                open_group_levels.push(block_level(
-                    tokens,
-                    index,
-                    first,
-                    current_level,
-                    &lines,
-                    &line_of_token,
-                ));
+            if let Some(group) = tokens[index].opens_group {
+                let mut level =
+                    block_level(tokens, index, first, current_level, &lines, &line_of_token);
+                if options.continuation_indent {
+                    // A block that spans several lines in the middle of a statement:
+                    //     Get-Item | ForEach-Object {
+                    //             $_.Name          <- two levels in
+                    //         } | Sort-Object      <- one level in, like any other
+                    //                                 continuation line of the statement
+                    let spans_lines = line_of_token[document.groups[group].close] > line_index;
+                    if let (Some(statement), true) =
+                        (tokens[index].statement_continues_from, spans_lines)
+                    {
+                        let one_level_in = lines[line_of_token[statement]].indent + 1;
+                        if one_level_in > level {
+                            level = one_level_in;
+                        }
+                    }
+                }
+                open_group_levels.push(level);
             }
         }
     }
@@ -844,6 +858,7 @@ mod tests {
             blank_lines: true,
             final_newline: true,
             trim_trailing_whitespace: true,
+            continuation_indent: false,
         }
     }
 

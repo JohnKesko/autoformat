@@ -42,6 +42,7 @@ blank_lines = true
 space_around_operators = true
 final_newline = true
 trim_trailing_whitespace = true
+continuation_indent = false
 ```
 
 4. Save a file. It is formatted automatically. (Zed needs a few lines of settings first, see [Zed](#zed).)
@@ -270,6 +271,30 @@ trim_trailing_whitespace = true
 - Never inside strings. Multi-line strings, raw strings, template strings, here-strings and C# `@"..."` strings keep every space.
 - `false`: spaces at the end of a line are left as you wrote them.
 
+```
+# continuation_indent - Push in a block that sits in the middle of a statement (PowerShell)
+continuation_indent = false
+```
+
+In PowerShell a pipeline often goes on after a block. With `false` the closing `}` starts at the left edge, where it can look like the start of a new statement:
+
+```powershell
+# continuation_indent = false
+Get-WindowsImage -ImagePath $img.FullName | ForEach-Object {
+    Get-WindowsImage -ImagePath $img.FullName -Index $_.ImageIndex
+} | Select-Object ImageIndex, ImageName
+
+# continuation_indent = true
+Get-WindowsImage -ImagePath $img.FullName | ForEach-Object {
+        Get-WindowsImage -ImagePath $img.FullName -Index $_.ImageIndex
+    } | Select-Object ImageIndex, ImageName
+```
+
+- `true`: the block and the rest of the statement are pushed in one extra step, so only the first line of the statement starts at the left.
+- It only applies when the statement goes on after the `}`, with `| ...` or with more parameters. A block that ends the statement is left alone.
+- Blocks written on one line, like `ForEach-Object { $_.Name }`, are left alone.
+- Only PowerShell uses this setting for now. To set it for PowerShell only, put it under `[formatting.powershell]`.
+
 ### Which declarations blank_lines looks at
 
 | Language | Declarations |
@@ -444,7 +469,7 @@ Good to know:
 - **TOML**: keys inside tables are not indented.
 - **JavaScript / TypeScript**: JSX markup is kept as written, it is only moved left or right as a whole. The braces of `namespace X { }` never move.
 - **C#**: `#if`, `#else` and `#endif` start at the left edge. `#region` lines are indented like code.
-- **PowerShell**: PowerShell cares about spaces, so only safe spacing is changed (after commas, around `=` and `|`, after `if`, inside brackets). Other operators like `+`, `-` and `-eq` are left as you wrote them, because in PowerShell a space can change what they mean.
+- **PowerShell**: PowerShell cares about spaces, so only safe spacing is changed (after commas, around `=` and `|`, after `if`, inside brackets, and before the `{` of a block that follows a command, like `ForEach-Object {`). Other operators like `+`, `-` and `-eq` are left as you wrote them, because in PowerShell a space can change what they mean.
 - Spaces used to line up `=` signs are reduced to one.
 
 ## For developers

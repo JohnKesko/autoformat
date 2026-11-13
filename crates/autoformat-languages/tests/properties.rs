@@ -69,6 +69,7 @@ fn configurations() -> Vec<Config> {
             space_around_operators: false,
             final_newline: false,
             trim_trailing_whitespace: false,
+            continuation_indent: true,
             ..Config::default()
         },
         Config {

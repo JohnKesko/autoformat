@@ -119,6 +119,28 @@ pub fn build_layout(
         tokens.push(token);
     }
 
+    // Blocks in the middle of a statement that goes on after the block's closing brace.
+    for pair in &pairs {
+        let statement = match adapter.statement_around_block(&contexts[pair.open]) {
+            Some(statement) => statement,
+            None => continue,
+        };
+        // The statement goes on when the next piece of code after `}` is still part of it.
+        let mut next = pair.close + 1;
+        while next < count && tokens[next].is_comment {
+            next += 1;
+        }
+        if next >= count || raw_tokens[next].start >= statement.end_byte() {
+            continue;
+        }
+        let start = statement.start_byte();
+        let first = token_starts.partition_point(|&token_start| token_start < start);
+        // Only when no other bracket sits between the statement's start and the block.
+        if first < pair.open && enclosing[first] == enclosing[pair.open] {
+            tokens[pair.open].statement_continues_from = Some(first);
+        }
+    }
+
     // Code blocks whose braces follow `brace_style`, and the `else` / `catch` keywords
     // that follow their closing brace.
     for pair in &pairs {

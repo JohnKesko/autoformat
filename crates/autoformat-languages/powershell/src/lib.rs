@@ -11,6 +11,7 @@
 //! Indentation is recomputed from the structure. Here-strings are never changed.
 
 use autoformat_core::{LanguageAdapter, LanguageRules, Role, Spacing, TokenContext};
+use autoformat_parser::tree_sitter::Node;
 use autoformat_parser::Grammar;
 
 pub struct PowerShellLanguage {
@@ -142,6 +143,39 @@ impl LanguageAdapter for PowerShellLanguage {
     }
 
     /// PowerShell keywords are case-insensitive: `Else` works like `else`.
+    /// A script block given to a command, like `ForEach-Object { ... }`, can sit in the
+    /// middle of a pipeline. The statement around it is the nearest pipeline.
+    fn statement_around_block<'tree>(&self, open: &TokenContext<'tree>) -> Option<Node<'tree>> {
+        if !open.is("{") || open.parent_kind != "script_block_expression" {
+            return None;
+        }
+        let mut current = open.parent();
+        while let Some(node) = current {
+            if node.kind() == "pipeline" {
+                return Some(node);
+            }
+            current = open.parents.parent(node);
+        }
+        None
+    }
+
+    /// The grammar reads `ForEach-Object{ }` as a command followed by a script block, and
+    /// `ForEach-Object { }` as a command followed by an expression that holds only that
+    /// script block. PowerShell runs both the same way, so the safety check looks through
+    /// the two expression nodes when a script block is all they contain.
+    fn is_plain_wrapper(&self, node: Node) -> bool {
+        match node.kind() {
+            "unary_expression" => holds_only_a_script_block(node),
+            "array_literal_expression" => match only_child(node) {
+                Some(child) => {
+                    child.kind() == "unary_expression" && holds_only_a_script_block(child)
+                }
+                None => false,
+            },
+            _ => false,
+        }
+    }
+
     fn outdent(&self, token: &TokenContext) -> bool {
         RULES
             .outdent_tokens
@@ -156,6 +190,21 @@ impl LanguageAdapter for PowerShellLanguage {
             }
         }
         false
+    }
+}
+
+/// The only child of a node, or `None` when it has no children or more than one.
+fn only_child(node: Node) -> Option<Node> {
+    if node.child_count() != 1 {
+        return None;
+    }
+    node.child(0)
+}
+
+fn holds_only_a_script_block(node: Node) -> bool {
+    match only_child(node) {
+        Some(child) => child.kind() == "script_block_expression",
+        None => false,
     }
 }
 
@@ -235,6 +284,15 @@ fn powershell_spacing(previous: &TokenContext, next: &TokenContext) -> Spacing {
         let after_keyword = previous.role == Role::Keyword
             && BLOCK_KEYWORDS.contains(&previous.text.to_lowercase().as_str());
         if previous.is(")") || after_keyword || previous.kind == "function_name" {
+            return Spacing::Space;
+        }
+    }
+
+    // `ForEach-Object {`, `Invoke-Command -ScriptBlock {`: a script block given to a
+    // command. A parameter that ends with `:` keeps its value attached.
+    if next.role == Role::Open && next.is("{") && next.parent_kind == "script_block_expression" {
+        let after_parameter = previous.kind == "command_parameter" && !previous.text.ends_with(':');
+        if previous.kind == "command_name" || after_parameter {
             return Spacing::Space;
         }
     }

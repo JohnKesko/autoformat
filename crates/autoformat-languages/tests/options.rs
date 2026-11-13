@@ -1,11 +1,12 @@
 //! Tests for blank_lines, space_around_operators, final_newline, trim_trailing_whitespace,
-//! line endings, per-language settings and the C# property pattern regression.
+//! continuation_indent, line endings, per-language settings and the C# property pattern regression.
 //!
 //! Every check formats the input, compares it with the expected text, and formats the
 //! result again to prove that nothing changes the second time.
 
 use autoformat_core::config::{parse_config, Config, LineEnding};
 use autoformat_core::format_source;
+use autoformat_core::parser::tree_sitter::Node;
 use autoformat_languages::Languages;
 
 fn format(extension: &str, source: &str, config: &Config) -> String {
@@ -567,4 +568,208 @@ fn csharp_region_lines_are_not_treated_as_comments_about_the_next_member() {
     let expected =
         "class A {\n    void One() {\n    }\n    #endregion\n\n    void Two() {\n    }\n}\n";
     check("cs", source, expected);
+}
+
+// ---------------------------------------------------------------------------
+// continuation_indent
+// ---------------------------------------------------------------------------
+
+/// A PowerShell pipeline that goes on after a block, written the usual way.
+const PIPELINE_USUAL: &str = "\
+Get-WindowsImage -ImagePath $img.FullName | ForEach-Object {
+    Get-WindowsImage -ImagePath $img.FullName -Index $_.ImageIndex
+} | Select-Object ImageIndex, ImageName
+";
+
+/// The same pipeline with `continuation_indent = true`.
+const PIPELINE_INDENTED: &str = "\
+Get-WindowsImage -ImagePath $img.FullName | ForEach-Object {
+        Get-WindowsImage -ImagePath $img.FullName -Index $_.ImageIndex
+    } | Select-Object ImageIndex, ImageName
+";
+
+fn continuation_indent_on() -> Config {
+    settings("[formatting.powershell]\ncontinuation_indent = true\n")
+}
+
+#[test]
+fn continuation_indent_is_off_by_default() {
+    check("ps1", PIPELINE_USUAL, PIPELINE_USUAL);
+    check("ps1", PIPELINE_INDENTED, PIPELINE_USUAL);
+}
+
+#[test]
+fn continuation_indent_pushes_in_a_block_in_the_middle_of_a_pipeline() {
+    let on = continuation_indent_on();
+    check_with("ps1", &on, PIPELINE_USUAL, PIPELINE_INDENTED);
+    check_with("ps1", &on, PIPELINE_INDENTED, PIPELINE_INDENTED);
+}
+
+#[test]
+fn continuation_indent_does_not_pile_up_for_several_blocks() {
+    let source = "\
+$r = $list | Where-Object {
+$_ -gt 1
+} | ForEach-Object {
+$_ * 2
+} | Sort-Object
+";
+    let expected = "\
+$r = $list | Where-Object {
+        $_ -gt 1
+    } | ForEach-Object {
+        $_ * 2
+    } | Sort-Object
+";
+    check_with("ps1", &continuation_indent_on(), source, expected);
+}
+
+#[test]
+fn continuation_indent_works_inside_other_blocks_and_after_parameters() {
+    let source = "\
+function Show-It {
+    Get-A | ForEach-Object {
+        if ($_) {
+            Get-B | Where-Object {
+                $_.Ok
+            } | Select-Object N
+        }
+    } | Out-Null
+}
+
+Invoke-Command -ScriptBlock {
+    Get-Date
+} -ArgumentList 1
+";
+    let expected = "\
+function Show-It {
+    Get-A | ForEach-Object {
+            if ($_) {
+                Get-B | Where-Object {
+                        $_.Ok
+                    } | Select-Object N
+            }
+        } | Out-Null
+}
+
+Invoke-Command -ScriptBlock {
+        Get-Date
+    } -ArgumentList 1
+";
+    check_with("ps1", &continuation_indent_on(), source, expected);
+}
+
+#[test]
+fn continuation_indent_leaves_everything_else_alone() {
+    // Nothing follows the closing brace, the block is on one line, the pipeline is
+    // already split one step per line, or the block sits inside other brackets.
+    let source = "\
+Get-Process | ForEach-Object {
+    $_.Name
+}
+Get-Process | ForEach-Object { $_.Name } | Sort-Object
+Get-A |
+    ForEach-Object {
+        $_
+    } |
+    Select-Object N
+$h = @{ a = {
+    1
+}; b = 2 }
+foo (bar | % {
+    1
+}) 2
+if ($a) {
+    Get-A
+} else {
+    Get-B
+}
+";
+    check_with("ps1", &continuation_indent_on(), source, source);
+    check("ps1", source, source);
+}
+
+#[test]
+fn continuation_indent_does_nothing_in_other_languages() {
+    let on = settings("[formatting]\ncontinuation_indent = true\n");
+    let cases = [
+        ("rs", "fn f() {\n    let v = items.iter().map(|x| {\n        x + 1\n    }).collect();\n}\n"),
+        ("js", "const v = items.map((x) => {\n    return x + 1;\n}).filter(Boolean);\n"),
+        ("cs", "class A\n{\n    void M()\n    {\n        var v = items.Select(x =>\n        {\n            return x + 1;\n        }).ToList();\n    }\n}\n"),
+    ];
+    for (extension, source) in cases {
+        let usual = format(extension, source, &Config::default());
+        assert_eq!(format(extension, source, &on), usual, "{}", extension);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PowerShell: a space before a script block that follows a command
+// ---------------------------------------------------------------------------
+
+#[test]
+fn powershell_script_block_after_a_command_gets_a_space() {
+    check(
+        "ps1",
+        "Get-A|ForEach-Object{ $_ }\nInvoke-Command -ScriptBlock{ 1 }\n",
+        "Get-A | ForEach-Object { $_ }\nInvoke-Command -ScriptBlock { 1 }\n",
+    );
+    check(
+        "ps1",
+        "Get-A | Where-Object{$_.Ok} | ForEach-Object{\n$_\n}\n",
+        "Get-A | Where-Object { $_.Ok } | ForEach-Object {\n    $_\n}\n",
+    );
+}
+
+#[test]
+fn powershell_braces_that_must_stay_attached_are_not_moved() {
+    // A method call with a script block, a parameter value attached with `:`, a
+    // hashtable and a variable in braces all mean something else with a space.
+    let source =
+        "$list.ForEach{ $_ }\nInvoke-Command -ScriptBlock:{ 1 }\n$h = @{ a = 1 }\n$v = ${my var}\n";
+    check("ps1", source, source);
+}
+
+/// Runs the safety check on two PowerShell texts, the way the engine does.
+fn powershell_means_the_same(before: &str, after: &str) -> bool {
+    let languages = Languages::new();
+    let adapter = languages.by_extension("ps1").unwrap();
+    let original = adapter.grammar().parse(before).unwrap();
+    let formatted = adapter.grammar().parse(after).unwrap();
+    let is_atomic = |node: Node| adapter.compare_as_atomic(node);
+    let text_matches = |_node: Node, left: &str, right: &str| left == right;
+    let is_wrapper = |node: Node| adapter.is_plain_wrapper(node);
+    autoformat_core::parser::compare_trees(
+        &original,
+        &formatted,
+        &is_atomic,
+        &text_matches,
+        &is_wrapper,
+    )
+    .is_ok()
+}
+
+#[test]
+fn the_safety_check_only_looks_through_a_lone_script_block() {
+    // The one difference that is allowed: a space before the block.
+    assert!(powershell_means_the_same("Get-A{ 1 }\n", "Get-A { 1 }\n"));
+    assert!(powershell_means_the_same(
+        "Get-A -P{ 1 }\n",
+        "Get-A -P { 1 }\n"
+    ));
+    // Everything else is still caught.
+    assert!(!powershell_means_the_same("Get-A{ 1 }\n", "Get-A { 2 }\n"));
+    assert!(!powershell_means_the_same(
+        "Get-A{ 1 }\n",
+        "Get-A { 1 } { 1 }\n"
+    ));
+    assert!(!powershell_means_the_same(
+        "Get-A { 1 }, { 2 }\n",
+        "Get-A { 1 } { 2 }\n"
+    ));
+    assert!(!powershell_means_the_same(
+        "Get-A{ 1 }\n",
+        "Get-A -not { 1 }\n"
+    ));
+    assert!(!powershell_means_the_same("Get-A{ 1 }\n", "Get-A 1\n"));
 }

@@ -74,6 +74,11 @@ pub struct LayoutToken {
     /// This token (`else`, `catch`, `finally`, the `while` of a do-while) directly
     /// follows the closing brace of a code block and continues the same statement.
     pub brace_continuation: bool,
+    /// For a `{` that opens a block in the middle of a statement that goes on after the
+    /// block's `}` (PowerShell: `... | ForEach-Object { ... } | ...`): the index of the
+    /// statement's first token. With `continuation_indent` on, such a block is indented
+    /// from one level inside that statement.
+    pub statement_continues_from: Option<usize>,
     /// The group this token opens or closes, if it is a bracket.
     pub opens_group: Option<usize>,
     pub closes_group: Option<usize>,
@@ -107,6 +112,7 @@ impl LayoutToken {
             column_zero: false,
             block_brace: false,
             brace_continuation: false,
+            statement_continues_from: None,
             opens_group: None,
             closes_group: None,
             multi_line: MultiLine::Verbatim,

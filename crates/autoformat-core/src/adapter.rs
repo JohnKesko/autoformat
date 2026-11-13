@@ -141,6 +141,13 @@ pub trait LanguageAdapter: Send + Sync {
         self.rules().is_brace_continuation(token)
     }
 
+    /// For a `{` that opens a block which can sit in the middle of a statement (a
+    /// PowerShell script block given to a command): the syntax node of that whole
+    /// statement. `None` for every other token. Used by `continuation_indent`.
+    fn statement_around_block<'tree>(&self, _open: &TokenContext<'tree>) -> Option<Node<'tree>> {
+        None
+    }
+
     /// Whether the token must start at column 0 when it begins a line.
     fn column_zero(&self, _token: &TokenContext) -> bool {
         false
@@ -161,6 +168,13 @@ pub trait LanguageAdapter: Send + Sync {
     /// Whether the safety check compares this node as a whole instead of child by child.
     fn compare_as_atomic(&self, node: Node) -> bool {
         self.rules().is_atomic(node)
+    }
+
+    /// Whether the safety check may look straight through this node at its only child.
+    /// Only for nodes that add no meaning of their own, where the grammar wraps the same
+    /// code differently depending on the whitespace around it.
+    fn is_plain_wrapper(&self, _node: Node) -> bool {
+        false
     }
 
     /// Language-specific text comparison for the safety check. Return `None` to use the

@@ -10,3 +10,4 @@ blank_lines = true
 space_around_operators = true
 final_newline = true
 trim_trailing_whitespace = true
+continuation_indent = false

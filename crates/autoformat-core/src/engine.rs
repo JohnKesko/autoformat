@@ -137,6 +137,7 @@ pub fn format_source(
             blank_lines: config.blank_lines,
             final_newline: config.final_newline,
             trim_trailing_whitespace: config.trim_trailing_whitespace,
+            continuation_indent: config.continuation_indent,
         };
         let document = build_layout(&tree, adapter, &build_options);
         let printed = print(&document, &print_options);
@@ -174,7 +175,8 @@ fn check_same_program(
     let is_atomic = |node: Node| adapter.compare_as_atomic(node);
     let text_matches =
         |node: Node, before: &str, after: &str| leaf_text_matches(adapter, node, before, after);
-    compare_trees(original, &formatted, &is_atomic, &text_matches)
+    let is_wrapper = |node: Node| adapter.is_plain_wrapper(node);
+    compare_trees(original, &formatted, &is_atomic, &text_matches, &is_wrapper)
 }
 
 /// The shared rules for comparing token text before and after formatting.
