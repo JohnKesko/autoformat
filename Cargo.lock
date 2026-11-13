@@ -26,6 +26,7 @@ dependencies = [
  "autoformat-languages",
  "flate2",
  "self-replace",
+ "serde_json",
  "sha2",
  "tar",
  "ureq",

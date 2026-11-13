@@ -1,0 +1,22 @@
+id = "autoformat"
+name = "AutoFormat"
+description = "One formatter for Rust, TOML, TypeScript, JavaScript, C# and PowerShell. No other tools needed."
+version = "0.1.0"
+schema_version = 1
+authors = ["AutoFormat contributors"]
+repository = "https://github.com/JohnKesko/autoformat"
+
+# Zed formats through language servers. This one only formats.
+[language_servers.autoformat]
+name = "AutoFormat"
+languages = ["Rust", "TOML", "JavaScript", "TypeScript", "TSX", "CSharp", "PowerShell"]
+
+# The names autoformat is told for each of Zed's languages.
+[language_servers.autoformat.language_ids]
+"Rust" = "rust"
+"TOML" = "toml"
+"JavaScript" = "javascript"
+"TypeScript" = "typescript"
+"TSX" = "typescriptreact"
+"CSharp" = "csharp"
+"PowerShell" = "powershell"

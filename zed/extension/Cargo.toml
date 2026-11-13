@@ -1,0 +1,17 @@
+[package]
+name = "autoformat-zed"
+description = "The AutoFormat extension for the Zed editor."
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+zed_extension_api = "0.7.0"
+
+# Zed builds this folder on its own, so it is not part of the workspace in the repository
+# root.
+[workspace]

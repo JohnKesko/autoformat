@@ -220,3 +220,82 @@ fn lists_languages_and_shows_config() {
         .unwrap();
     assert!(String::from_utf8_lossy(&output.stdout).contains("indent_size"));
 }
+
+/// Wraps a message the way an editor sends it to `autoformat lsp`.
+fn lsp_message(json: &str) -> String {
+    format!("Content-Length: {}\r\n\r\n{}", json.len(), json)
+}
+
+#[test]
+fn lsp_mode_formats_documents_for_an_editor() {
+    let directory = temp_dir("lsp");
+    std::fs::write(
+        directory.join("autoformat.toml"),
+        "[formatting]\nindent_size = 2\n",
+    )
+    .unwrap();
+    // Editors write file addresses with forward slashes on every system.
+    let path = directory
+        .join("main.rs")
+        .to_string_lossy()
+        .replace('\\', "/");
+    let uri = if path.starts_with('/') {
+        format!("file://{}", path)
+    } else {
+        format!("file:///{}", path)
+    };
+
+    let mut input = String::new();
+    input.push_str(&lsp_message(
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
+    ));
+    input.push_str(&lsp_message(
+        r#"{"jsonrpc":"2.0","method":"initialized","params":{}}"#,
+    ));
+    input.push_str(&lsp_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{}","languageId":"rust","version":1,"text":"fn main(){{\nlet x=1;\n}}\n"}}}}}}"#,
+        uri
+    )));
+    input.push_str(&lsp_message(&format!(
+        r#"{{"jsonrpc":"2.0","id":2,"method":"textDocument/formatting","params":{{"textDocument":{{"uri":"{}"}},"options":{{"tabSize":4,"insertSpaces":true}}}}}}"#,
+        uri
+    )));
+    input.push_str(&lsp_message(
+        r#"{"jsonrpc":"2.0","id":3,"method":"shutdown"}"#,
+    ));
+    input.push_str(&lsp_message(r#"{"jsonrpc":"2.0","method":"exit"}"#));
+
+    let (code, stdout, stderr) = run_with_stdin(&["lsp"], &input);
+    assert_eq!(code, 0, "{}", stderr);
+    assert!(stderr.is_empty(), "{}", stderr);
+    // Three requests, three answers, and nothing else on standard output.
+    assert_eq!(stdout.matches("Content-Length: ").count(), 3, "{}", stdout);
+    assert!(stdout.starts_with("Content-Length: "), "{}", stdout);
+    assert!(
+        stdout.contains(r#""documentFormattingProvider":true"#),
+        "{}",
+        stdout
+    );
+    // The two spaces of indentation come from autoformat.toml next to the file.
+    assert!(
+        stdout.contains(r#""newText":"fn main() {\n  let x = 1;\n}\n""#),
+        "{}",
+        stdout
+    );
+    // The edit replaces everything, up to the end of the old text: line 3, column 0.
+    assert!(stdout.contains(r#""line":3"#), "{}", stdout);
+}
+
+#[test]
+fn lsp_mode_accepts_stdio_and_refuses_other_options() {
+    let exit = lsp_message(r#"{"jsonrpc":"2.0","method":"exit"}"#);
+    // `exit` without `shutdown` first ends with code 1, which shows the server was running.
+    let (code, stdout, _) = run_with_stdin(&["lsp", "--stdio"], &exit);
+    assert_eq!(code, 1);
+    assert!(stdout.is_empty());
+
+    let (code, stdout, stderr) = run_with_stdin(&["lsp", "--port", "1234"], &exit);
+    assert_eq!(code, 2);
+    assert!(stdout.is_empty());
+    assert!(stderr.contains("--port"), "{}", stderr);
+}

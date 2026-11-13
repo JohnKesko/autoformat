@@ -52,3 +52,23 @@ jobs:
       - name: Tests inside VS Code
         working-directory: vscode/extension
         run: xvfb-run -a npm run test:vscode
+
+  zed-extension:
+    name: Zed extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          # Zed builds extensions for this target.
+          targets: wasm32-wasip2
+      - name: Format, lint and test
+        working-directory: zed/extension
+        run: |
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+      - name: Build the way Zed does
+        working-directory: zed/extension
+        run: cargo build --locked --release --target wasm32-wasip2

@@ -1,0 +1,3 @@
+# Made by Zed and cargo when the extension is built.
+/target
+/extension.wasm

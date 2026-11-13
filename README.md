@@ -19,11 +19,12 @@ Uses [Tree-sitter](https://tree-sitter.github.io/) grammars to understand the co
 |---|---|
 | VS Code 1.90 or newer | Supported and tested |
 | Editors based on VS Code (Cursor, VSCodium, Windsurf) | Should work if you install the `.vsix` file by hand. Not tested yet, and not in their extension store (Open VSX) yet. |
-| Other editors (Visual Studio, JetBrains, Neovim, Zed, Helix) | No extension. Editors that can run an external formatter can use the command line: `autoformat format --stdin --stdin-filepath <file>`. Not tested yet. |
+| Zed | Supported. See [Zed](#zed). |
+| Other editors (Visual Studio, JetBrains, Neovim, Helix) | No extension. Editors that can use a language server can start `autoformat lsp`. Editors that can run an external formatter can use `autoformat format --stdin --stdin-filepath <file>`. Not tested yet. |
 
 ## Get Started
 
-1. Install the AutoFormat extension in VS Code.
+1. Install the AutoFormat extension in VS Code or in Zed.
 2. Create a file called `autoformat.toml` anywhere in your project. It doesn't matter if it's a mono repo or not.
 3. Add the settings you want:
 
@@ -43,7 +44,7 @@ final_newline = true
 trim_trailing_whitespace = true
 ```
 
-4. Save a file. It is formatted automatically.
+4. Save a file. It is formatted automatically. (Zed needs a few lines of settings first, see [Zed](#zed).)
 
 All settings are optional. A missing setting uses the value shown above.  
 No `autoformat.toml` at all? Then all the values above are used.  
@@ -319,6 +320,48 @@ To always use AutoFormat, add this to your VS Code settings:
 }
 ```
 
+## Zed
+
+1. Open the Extensions page in Zed, search for **AutoFormat** and install it.
+2. Tell Zed to use it. Zed never switches formatter by itself, so add this to your Zed settings (`zed: open settings file`). Keep only the languages you want:
+
+```json
+"languages": {
+    "Rust":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "TOML":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "JavaScript": { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "TypeScript": { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "TSX":        { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "CSharp":     { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "PowerShell": { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" }
+}
+```
+
+3. Save a file. It is formatted. To format without saving, run `editor: format`.
+
+Good to know:
+
+- Zed does not allow extensions to include programs. The first time it is needed, the extension downloads the `autoformat` program from this project's GitHub releases, and it gets newer versions the same way. Without internet it keeps using the one it already has.
+- Zed knows Rust, JavaScript and TypeScript from the start. For TOML, C# and PowerShell files you also need Zed's extension for that language. Zed offers to install it when you open such a file.
+- `.jsx` files are "JavaScript" in Zed, and `.tsx` files are "TSX".
+- A file with a syntax error is not changed. The reason is in Zed's log for the AutoFormat language server (`dev: open language server logs`).
+- A mistake in `autoformat.toml` is shown as a message in Zed.
+
+Two settings work differently in Zed, because Zed does these things itself:
+
+- `line_ending`: Zed decides the line endings of a file, with its own `"line_ending"` setting. The one in `autoformat.toml` is not used in Zed.
+- `trim_trailing_whitespace = false`: Zed removes spaces at the end of lines when you save. To keep them, also set `"remove_trailing_whitespace_on_save": false` in your Zed settings.
+
+To use your own `autoformat` program instead of the downloaded one:
+
+```json
+"lsp": {
+    "autoformat": {
+        "binary": { "path": "/path/to/autoformat", "arguments": ["lsp"] }
+    }
+}
+```
+
 ## Command line
 
 ### Install
@@ -360,7 +403,7 @@ autoformat upgrade
 
 It checks for a newer version, asks before installing, checks the download against the published checksum, and replaces itself. `autoformat upgrade --check` only tells you whether a newer version exists, and `--yes` skips the question.
 
-The copy of autoformat that comes with the VS Code extension is updated by VS Code, together with the extension.
+The copy of autoformat that comes with the VS Code extension is updated by VS Code, together with the extension. The copy that the Zed extension downloads is updated by the Zed extension.
 
 ### Use
 
@@ -383,6 +426,7 @@ Other commands:
 | `autoformat config` | Shows which settings are used and which `autoformat.toml` they come from |
 | `autoformat languages` | Lists the languages and file types |
 | `autoformat format --stdin --stdin-filepath a.rs` | Reads code from input and writes the result to output |
+| `autoformat lsp` | Runs as a language server that only formats. This is how Zed uses it, and other editors that can talk to language servers can use it too. |
 
 ## Supported languages
 
@@ -407,7 +451,7 @@ Good to know:
 
 ### Build and test
 
-You need Rust and a C compiler. For the extension you also need Node.js.
+You need Rust and a C compiler. For the VS Code extension you also need Node.js.
 
 ```bash
 cargo build --release
@@ -423,6 +467,16 @@ cd vscode/extension && npm ci && npm run test:unit && npm run test:vscode
 
 `test:vscode` opens a separate VS Code window with its own settings, so your own VS Code is not touched.
 
+The Zed extension is its own small Rust project:
+
+```bash
+cd zed/extension && cargo test
+```
+
+To try it in Zed, open the Extensions page, click **Install Dev Extension** and pick the `zed/extension` folder. Zed builds it for you (Rust must be installed with rustup).
+
+The extension downloads the newest released `autoformat`. To use the one you just built instead, point Zed to `target/release/autoformat` with the `"lsp"` setting shown under [Zed](#zed).
+
 ### How the code is organized
 
 ```
@@ -431,8 +485,9 @@ crates/
 ├── autoformat-parser      reads code with Tree-sitter
 ├── autoformat-core        the formatter itself, the same for every language
 ├── autoformat-languages   one small folder per language with its rules
-└── autoformat-cli         the autoformat command
+└── autoformat-cli         the autoformat command, including the language server (autoformat lsp)
 vscode/extension           the VS Code extension
+zed/extension              the Zed extension
 ```
 
 ### Adding a language
@@ -454,6 +509,24 @@ Publishing uses Trusted Publishing: the Marketplace trusts the workflow `release
 After publishing, the workflow waits until every platform can be downloaded. It can still take a few minutes before VS Code finds the new version.
 
 Pushes that only change `.md` files (like this README) or the license files don't start the workflow. The README on the Marketplace page is updated with the next release.
+
+### Release for Zed
+
+Zed users get every new `autoformat` automatically, because the Zed extension downloads the newest GitHub release. Nothing needs to be done for Zed in a normal release.
+
+The Zed extension itself (`zed/extension`) has its own version, in `zed/extension/extension.toml` and `zed/extension/Cargo.toml`. It only changes when the extension's own code changes. To publish it, or a new version of it, open a pull request to [zed-industries/extensions](https://github.com/zed-industries/extensions):
+
+1. Add this repository as a submodule in `extensions/autoformat` (the first time), or move the submodule to the new commit.
+2. In `extensions.toml`, add or update:
+
+```toml
+[autoformat]
+submodule = "extensions/autoformat"
+path = "zed/extension"
+version = "0.1.0"
+```
+
+The first `autoformat` release that can be used by Zed is the one after 0.1.2, so publish that release before the Zed extension.
 
 ## License
 

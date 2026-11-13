@@ -66,3 +66,18 @@ CDLA-Permissive-2.0 (where a crate offers a choice, MIT or Apache-2.0 is used). 
 The extension has no runtime npm dependencies. Its development tools (TypeScript,
 `@types/node`, `@types/vscode`, `@vscode/vsce`, `@vscode/test-electron`) are MIT or
 Apache-2.0 licensed and are not included in the packaged extension.
+
+## Zed extension
+
+The Zed extension (`zed/extension`) is a small WebAssembly file built from the crates
+below. It does not contain the `autoformat` executable; it downloads that from this
+project's GitHub releases.
+
+| Crate | License | Source |
+|---|---|---|
+| zed_extension_api | Apache-2.0 | https://github.com/zed-industries/zed |
+| wit-bindgen, wit-bindgen-rt | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/bytecodealliance/wit-bindgen |
+| serde, serde_json | MIT OR Apache-2.0 | https://github.com/serde-rs |
+
+The other crates in `zed/extension/Cargo.lock` are build tools of `wit-bindgen`. They
+use MIT, Apache-2.0, Zlib or Unicode-3.0 licenses.

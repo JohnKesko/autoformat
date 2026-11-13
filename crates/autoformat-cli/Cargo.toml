@@ -15,6 +15,9 @@ autoformat-config.workspace = true
 autoformat-core.workspace = true
 autoformat-languages.workspace = true
 
+# `autoformat lsp` only.
+serde_json.workspace = true
+
 # `autoformat upgrade` only.
 ureq.workspace = true
 sha2.workspace = true

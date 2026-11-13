@@ -10,6 +10,8 @@ name: Build & Release
 #      and SHA256SUMS.txt,
 #   5. installs the command line tool with install.sh / install.ps1 on Linux, macOS and
 #      Windows, straight from that release, to prove the install scripts work.
+# The Zed extension (zed/extension) needs no step here: it downloads the command line
+# archives of the newest GitHub release by itself.
 # To release: raise the version in vscode/extension/package.json and Cargo.toml, then push.
 #
 # Run this workflow by hand with "check sign-in only" to test the Marketplace sign-in
@@ -132,6 +134,14 @@ jobs:
           "$BINARY" --version
           result=$(printf 'fn main(){let x=1;}\n' | "$BINARY" format --stdin --language rust)
           test "$result" = "fn main() { let x = 1; }"
+          # The Zed extension downloads this binary and starts it as `autoformat lsp`.
+          lsp_message() { printf 'Content-Length: %s\r\n\r\n%s' "${#1}" "$1"; }
+          answer=$({
+            lsp_message '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
+            lsp_message '{"jsonrpc":"2.0","id":2,"method":"shutdown"}'
+            lsp_message '{"jsonrpc":"2.0","method":"exit"}'
+          } | "$BINARY" lsp)
+          echo "$answer" | grep -q '"documentFormattingProvider":true'
       - uses: actions/setup-node@v7
         with:
           node-version: 22

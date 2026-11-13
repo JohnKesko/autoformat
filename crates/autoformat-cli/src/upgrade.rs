@@ -51,12 +51,22 @@ pub fn run(options: &UpgradeOptions) -> u8 {
 /// The whole upgrade, with the release address and the program to replace passed in so
 /// that tests can use a local server and a temporary file.
 fn upgrade(releases_url: &str, program: &Path, options: &UpgradeOptions) -> Result<(), String> {
-    if is_part_of_editor_extension(program) {
-        return Err(
-            "this autoformat came with the VS Code extension, and VS Code keeps it up to date. \
-                    Update the extension in VS Code instead."
-                .to_string(),
-        );
+    match owning_editor(program) {
+        Some("VS Code") => {
+            return Err(
+                "this autoformat came with the VS Code extension, and VS Code keeps it up to \
+                 date. Update the extension in VS Code instead."
+                    .to_string(),
+            );
+        }
+        Some(editor) => {
+            return Err(format!(
+                "this autoformat was downloaded by the {} extension, which gets the newest \
+                 version by itself.",
+                editor
+            ));
+        }
+        None => {}
     }
     let current = match Version::parse(env!("CARGO_PKG_VERSION")) {
         Some(version) => version,
@@ -282,13 +292,20 @@ fn sha256_hex(bytes: &[u8]) -> String {
     text
 }
 
-/// The copy of autoformat inside the VS Code extension (in a folder named like
-/// `johnk.autoformat-0.1.2-darwin-arm64`) is updated by VS Code, not by this command.
-fn is_part_of_editor_extension(program: &Path) -> bool {
-    program
-        .to_string_lossy()
-        .to_lowercase()
-        .contains("johnk.autoformat-")
+/// The editor whose extension this copy of autoformat belongs to, if any. The editor
+/// keeps such a copy up to date, not this command.
+/// - The VS Code extension carries it in a folder named like
+///   `johnk.autoformat-0.1.2-darwin-arm64`.
+/// - The Zed extension downloads it to `.../extensions/work/autoformat/autoformat-v0.1.2/`.
+fn owning_editor(program: &Path) -> Option<&'static str> {
+    let path = program.to_string_lossy().to_lowercase().replace('\\', "/");
+    if path.contains("johnk.autoformat-") {
+        return Some("VS Code");
+    }
+    if path.contains("/extensions/work/autoformat/") {
+        return Some("Zed");
+    }
+    None
 }
 
 /// Checks that the folder of the program can be written to, before downloading anything.
@@ -504,12 +521,29 @@ mod tests {
     }
 
     #[test]
-    fn the_copy_inside_the_vscode_extension_is_left_to_vscode() {
-        let bundled = Path::new("/Users/me/.vscode/extensions/johnk.autoformat-0.1.2-darwin-arm64/bin/darwin-arm64/autoformat");
-        assert!(is_part_of_editor_extension(bundled));
-        assert!(!is_part_of_editor_extension(Path::new(
-            "/Users/me/.local/bin/autoformat"
-        )));
+    fn copies_that_belong_to_an_editor_extension_are_left_to_the_editor() {
+        let vscode = Path::new("/Users/me/.vscode/extensions/johnk.autoformat-0.1.2-darwin-arm64/bin/darwin-arm64/autoformat");
+        assert_eq!(owning_editor(vscode), Some("VS Code"));
+        let zed_mac = Path::new("/Users/me/Library/Application Support/Zed/extensions/work/autoformat/autoformat-v0.1.3/autoformat");
+        assert_eq!(owning_editor(zed_mac), Some("Zed"));
+        let zed_windows = Path::new(
+            r"C:\Users\me\AppData\Local\Zed\extensions\work\autoformat\autoformat-v0.1.3\autoformat.exe",
+        );
+        assert_eq!(owning_editor(zed_windows), Some("Zed"));
+        assert_eq!(
+            owning_editor(Path::new("/Users/me/.local/bin/autoformat")),
+            None
+        );
+
+        // Nothing is looked up or downloaded for such a copy.
+        let options = UpgradeOptions {
+            check_only: false,
+            yes: true,
+        };
+        let error = upgrade("http://127.0.0.1:1/nowhere", zed_mac, &options).unwrap_err();
+        assert!(error.contains("Zed"), "{}", error);
+        let error = upgrade("http://127.0.0.1:1/nowhere", vscode, &options).unwrap_err();
+        assert!(error.contains("VS Code"), "{}", error);
     }
 
     /// A fake GitHub on 127.0.0.1: `routes` maps a path to (status, extra header, body).

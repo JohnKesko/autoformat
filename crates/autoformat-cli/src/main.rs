@@ -6,9 +6,11 @@
 //! autoformat config [path]
 //! autoformat languages
 //! autoformat tree <file>
+//! autoformat lsp
 //! autoformat upgrade [--check] [--yes]
 //! ```
 
+mod lsp;
 mod upgrade;
 
 use std::io::{Read, Write};
@@ -27,6 +29,7 @@ USAGE:
     autoformat config [PATH]                 Show the configuration used for a path
     autoformat languages                     List supported languages and extensions
     autoformat tree <FILE>                   Print the syntax tree of a file (for debugging)
+    autoformat lsp                           Run as a language server, for editors such as Zed
     autoformat upgrade [--check] [--yes]     Update autoformat to the newest version
 
 FORMAT OPTIONS:
@@ -86,6 +89,7 @@ fn run(arguments: &[String]) -> u8 {
         "config" => run_config(rest),
         "languages" => run_languages(),
         "tree" => run_tree(rest),
+        "lsp" => run_lsp(rest),
         "upgrade" | "update" => match parse_upgrade_options(rest) {
             Ok(options) => upgrade::run(&options),
             Err(message) => usage_error(&message),
@@ -106,6 +110,17 @@ fn usage_error(message: &str) -> u8 {
     eprintln!("error: {}", message);
     eprintln!("Run `autoformat --help` for usage.");
     2
+}
+
+/// `autoformat lsp` talks over standard input and output. `--stdio` says the same thing
+/// and is accepted because some editors always add it.
+fn run_lsp(arguments: &[String]) -> u8 {
+    for argument in arguments {
+        if argument != "--stdio" {
+            return usage_error(&format!("unknown option `{}` for lsp", argument));
+        }
+    }
+    lsp::run()
 }
 
 fn parse_upgrade_options(arguments: &[String]) -> Result<upgrade::UpgradeOptions, String> {
