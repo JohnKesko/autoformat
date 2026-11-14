@@ -151,6 +151,9 @@ pub struct DeclarationGap {
     pub last_before: usize,
     pub first_after: usize,
     pub last_after: usize,
+    /// The blank line is wanted even when both are short, as after Java's `package`
+    /// line and after the imports.
+    pub always: bool,
 }
 
 /// A whole document ready for printing.

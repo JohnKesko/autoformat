@@ -1,0 +1,14 @@
+{
+    "name": "demo",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "build": "tsc -p ./",
+        "test": "node --test",
+        "lint": "eslint src --ext .ts,.tsx --max-warnings 0 --report-unused-disable-directives --cache --cache-location node_modules/.cache/eslint"
+    },
+    "keywords": ["formatter", "json"],
+    "people": [{ "name": "Ada", "age": 36, "languages": ["English", "French"] }, { "name": "Grace", "age": 45, "languages": ["English"] }],
+    "empty": {},
+    "none": []
+}

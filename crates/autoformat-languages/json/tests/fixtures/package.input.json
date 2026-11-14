@@ -1,0 +1,22 @@
+{"name":"demo"  ,   "version" :"1.0.0",
+"private":true,
+      "description"  :  "Spaces   inside a string   stay, and so do escapes: \" \\ é \n",
+      "scripts": {
+  "build" : "tsc -p ./",   
+        "test":"node --test"
+      },
+"keywords":[ "formatter","rust" , "toml" ],
+   "empty":{}, "none":[ ],"spaced":{ },
+
+ "numbers":[0,-1,1.5,-1.5e3,2E10,1e-7],
+"flags":{"on":true,"off":false,"unset":null},
+"nested":{"list":[1,2,{"x":null,"y":[true,false]}],"deep":{"deeper":{"deepest":[]}}},
+"matrix": [
+[1,0],
+[0,1]
+],
+"files":["src/main.rs","src/lib.rs","src/adapter.rs","src/builder.rs","src/context.rs","src/engine.rs","src/layout.rs","src/printer.rs","src/spacing.rs"],
+		"people":[{"name":"Ada","age":36},{"name":"Grace","age":45}]
+
+
+}

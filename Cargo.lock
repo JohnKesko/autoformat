@@ -59,12 +59,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "autoformat-lang-java"
+version = "0.1.3"
+dependencies = [
+ "autoformat-core",
+ "autoformat-parser",
+ "tree-sitter-java",
+]
+
+[[package]]
 name = "autoformat-lang-javascript"
 version = "0.1.3"
 dependencies = [
  "autoformat-core",
  "autoformat-parser",
  "tree-sitter-javascript",
+]
+
+[[package]]
+name = "autoformat-lang-json"
+version = "0.1.3"
+dependencies = [
+ "autoformat-core",
+ "autoformat-parser",
+ "tree-sitter-json",
+]
+
+[[package]]
+name = "autoformat-lang-kotlin"
+version = "0.1.3"
+dependencies = [
+ "autoformat-core",
+ "autoformat-parser",
+ "tree-sitter-kt",
 ]
 
 [[package]]
@@ -110,7 +137,10 @@ version = "0.1.3"
 dependencies = [
  "autoformat-core",
  "autoformat-lang-csharp",
+ "autoformat-lang-java",
  "autoformat-lang-javascript",
+ "autoformat-lang-json",
+ "autoformat-lang-kotlin",
  "autoformat-lang-powershell",
  "autoformat-lang-rust",
  "autoformat-lang-toml",
@@ -756,10 +786,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-java"
+version = "0.23.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0aa6cbcdc8c679b214e616fd3300da67da0e492e066df01bcf5a5921a71e90d6"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
 name = "tree-sitter-javascript"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68204f2abc0627a90bdf06e605f5c470aa26fdcb2081ea553a04bdad756693f5"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-json"
+version = "0.24.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d727acca406c0020cffc6cf35516764f36c8e3dc4408e5ebe2cb35a947ec471"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-kt"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b38fdf58397623202aee14b5c87128217fe45784d1d585e63cde5f4b6c8d273c"
 dependencies = [
  "cc",
  "tree-sitter-language",

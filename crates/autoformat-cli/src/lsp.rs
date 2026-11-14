@@ -438,10 +438,13 @@ fn language_name(language_id: &str) -> Option<&'static str> {
     match language_id.to_lowercase().as_str() {
         "rust" => Some("rust"),
         "toml" => Some("toml"),
+        "json" | "jsonc" => Some("json"),
         "javascript" | "javascriptreact" | "jsx" => Some("javascript"),
         "typescript" => Some("typescript"),
         "typescriptreact" | "tsx" => Some("tsx"),
         "csharp" | "c-sharp" | "c#" | "cs" => Some("csharp"),
+        "java" => Some("java"),
+        "kotlin" | "kt" | "kts" => Some("kotlin"),
         "powershell" | "ps1" => Some("powershell"),
         _ => None,
     }
@@ -1155,6 +1158,8 @@ mod tests {
         assert_eq!(language_name("typescriptreact"), Some("tsx"));
         assert_eq!(language_name("cs"), Some("csharp"));
         assert_eq!(language_name("ps1"), Some("powershell"));
+        assert_eq!(language_name("jsonc"), Some("json"));
+        assert_eq!(language_name("kotlin"), Some("kotlin"));
         assert_eq!(language_name("python"), None);
         assert_eq!(language_name(""), None);
         // Every name it gives is a language that exists.
@@ -1162,10 +1167,14 @@ mod tests {
         for id in [
             "rust",
             "toml",
+            "json",
+            "jsonc",
             "javascript",
             "typescript",
             "tsx",
             "csharp",
+            "java",
+            "kotlin",
             "powershell",
         ] {
             assert!(

@@ -29,11 +29,15 @@ async function testFormatDocument(folder: string): Promise<void> {
 async function testEveryLanguage(folder: string): Promise<void> {
     const samples: [string, string, string][] = [
         ["a.toml", "x=1\n", "x = 1\n"],
+        ["a.json", '{"a":[1,2]}\n', '{ "a": [1, 2] }\n'],
+        ["a.jsonc", '// note\n{"a":1}\n', '// note\n{ "a": 1 }\n'],
         ["a.js", "let a=1\n", "let a = 1\n"],
         ["a.jsx", "const a=<b>hi</b>\n", "const a = <b>hi</b>\n"],
         ["a.ts", "let a:number=1\n", "let a: number = 1\n"],
         ["a.tsx", "const a=<b>hi</b>\n", "const a = <b>hi</b>\n"],
         ["a.cs", "class A{int x=1;}\n", "class A { int x = 1; }\n"],
+        ["a.java", "class A{int x=1;}\n", "class A { int x = 1; }\n"],
+        ["a.kt", "class A{val x=1}\n", "class A { val x = 1 }\n"],
         ["a.ps1", "if($a){$b=1}\n", "if ($a) { $b = 1 }\n"],
     ];
     for (const [name, input, expected] of samples) {

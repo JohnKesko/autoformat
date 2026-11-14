@@ -1,0 +1,17 @@
+// Settings for the editor
+{
+/* a block comment
+   on two lines */
+"editor.tabSize":2, // two spaces
+      "editor.rulers":[80,120],     // where the lines are drawn
+  "files.exclude":{"**/.git":true,"**/node_modules":true},
+
+  // a comment on its own line
+"list":[
+1, // first
+2
+],
+    "url": "https://example.com/a//b", /* not a comment inside the string: // */
+"last":[ /* inside */ ]
+}
+// the end

@@ -85,7 +85,9 @@ pub fn print(document: &LayoutDocument, options: &PrintOptions) -> String {
 ///
 /// A block written on a single line, like `if (x) { return; }`, is left on one line, and
 /// so is the placement of an `else` that follows it.
-/// A brace is never joined to a line that ends with a comment or a preprocessor line.
+/// A brace is never joined to a line that ends with a preprocessor line or with a comment
+/// that runs to the end of its line (`// note`). After a closed comment written behind
+/// code (`class A /* note */`) the brace can join, so every style can be changed back.
 fn place_block_braces(document: &LayoutDocument, breaks: &mut [usize], style: BraceStyle) {
     let tokens = &document.tokens;
     for group in &document.groups {
@@ -95,7 +97,7 @@ fn place_block_braces(document: &LayoutDocument, breaks: &mut [usize], style: Br
             continue;
         }
         if style == BraceStyle::SameLine {
-            if breaks[open] > 0 && can_join_previous_line(tokens, open) {
+            if breaks[open] > 0 && can_join_previous_line(tokens, breaks, open) {
                 breaks[open] = 0;
             }
         } else if !is_single_line(breaks, open, close) && breaks[open] == 0 {
@@ -136,7 +138,8 @@ fn place_block_braces(document: &LayoutDocument, breaks: &mut [usize], style: Br
 }
 
 /// Between two neighbouring declarations where either spans several lines: one empty
-/// line with `blank_lines = true`, no empty line with `false`.
+/// line with `blank_lines = true`, no empty line with `false`. A few neighbours get this
+/// whatever their size (`gap.always`), such as Java's `package` line and its imports.
 ///
 /// Only one place is changed: the first line after the first declaration. Comments about
 /// the second declaration stay directly above it, and empty lines written further down
@@ -151,7 +154,7 @@ fn set_blank_lines_between_declarations(
     for gap in &document.declaration_gaps {
         let before_spans = spans_lines(document, breaks, gap.first_before, gap.last_before);
         let after_spans = spans_lines(document, breaks, gap.first_after, gap.last_after);
-        if !before_spans && !after_spans {
+        if !gap.always && !before_spans && !after_spans {
             continue;
         }
         // The first token after the first declaration that starts a line. A comment at the
@@ -194,12 +197,29 @@ fn is_single_line(breaks: &[usize], open: usize, close: usize) -> bool {
 }
 
 /// Whether a token may move up to the end of the previous line.
-fn can_join_previous_line(tokens: &[LayoutToken], index: usize) -> bool {
+fn can_join_previous_line(tokens: &[LayoutToken], breaks: &[usize], index: usize) -> bool {
     if index == 0 {
         return false;
     }
     let previous = &tokens[index - 1];
-    !previous.is_comment && !previous.column_zero && !tokens[index].column_zero
+    if previous.column_zero || tokens[index].column_zero {
+        return false;
+    }
+    if !previous.is_comment {
+        return true;
+    }
+    // Only after a closed comment that sits behind code on the same line. A comment on
+    // a line of its own stays the last thing on that line.
+    let behind_code = index >= 2 && breaks[index - 1] == 0;
+    behind_code && is_closed_comment(&previous.text)
+}
+
+/// A comment with its own end mark, like `/* note */` or PowerShell's `<# note #>`.
+/// Code can follow it on the same line. After `// note` or `# note` it cannot.
+fn is_closed_comment(text: &str) -> bool {
+    let c_style = text.starts_with("/*") && text.ends_with("*/");
+    let powershell = text.starts_with("<#") && text.ends_with("#>");
+    c_style || powershell
 }
 
 /// Line breaks before each token: the source line breaks, with at most one blank line in
@@ -412,7 +432,7 @@ fn indent_comment_lines(document: &LayoutDocument, lines: &mut [Line]) {
 /// change it back: the second result is the same as the first.
 ///
 /// A list is free when:
-/// - it is a wrappable `(...)` or `[...]` list,
+/// - it is a wrappable `(...)` or `[...]` list (in JSON also a `{...}` object), or an array in `{...}`,
 /// - there is no comma after its last item (a trailing comma keeps the list as written),
 /// - it has no comments, blank lines or multi-line strings inside,
 /// - every line break inside it is between its items or right inside its brackets,
@@ -443,8 +463,14 @@ fn join_free_groups(document: &LayoutDocument, breaks: &mut [usize]) -> Vec<bool
 fn is_free_group(document: &LayoutDocument, group_index: usize, breaks: &[usize]) -> bool {
     let tokens = &document.tokens;
     let group = &document.groups[group_index];
-    let open_text = tokens[group.open].text.as_str();
-    if !group.wrappable || (open_text != "(" && open_text != "[") {
+    if !group.wrappable {
+        return false;
+    }
+    // An array whose `{` was written on a line of its own, below the code it belongs to
+    // (C#: `new[]`, then `{` on the next line), is laid out like a block. It keeps its
+    // lines.
+    let brace_starts_line = tokens[group.open].text == "{" && breaks[group.open] > 0;
+    if brace_starts_line && !starts_list_item(document, group.open) {
         return false;
     }
     if group.close == group.open + 1 {
@@ -481,6 +507,22 @@ fn is_free_group(document: &LayoutDocument, group_index: usize, breaks: &[usize]
         }
     }
     true
+}
+
+/// Whether the token is the first token of an item in a list: the token before it is an
+/// opening bracket or a separator such as `,`.
+fn starts_list_item(document: &LayoutDocument, index: usize) -> bool {
+    if index == 0 {
+        return false;
+    }
+    let previous = index - 1;
+    if document.tokens[previous].opens_group.is_some() {
+        return true;
+    }
+    document
+        .groups
+        .iter()
+        .any(|group| group.separators.contains(&previous))
 }
 
 fn wrap_long_lines(

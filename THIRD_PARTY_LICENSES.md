@@ -13,9 +13,12 @@ The list was produced from `cargo metadata` (normal and build dependencies of
 | tree-sitter-language | 0.1.9 | MIT | https://github.com/tree-sitter/tree-sitter |
 | tree-sitter-rust | 0.24.2 | MIT | https://github.com/tree-sitter/tree-sitter-rust |
 | tree-sitter-toml-ng | 0.7.0 | MIT | https://github.com/tree-sitter-grammars/tree-sitter-toml |
+| tree-sitter-json | 0.24.8 | MIT | https://github.com/tree-sitter/tree-sitter-json |
 | tree-sitter-javascript | 0.25.0 | MIT | https://github.com/tree-sitter/tree-sitter-javascript |
 | tree-sitter-typescript | 0.23.2 | MIT | https://github.com/tree-sitter/tree-sitter-typescript |
 | tree-sitter-c-sharp | 0.23.5 | MIT | https://github.com/tree-sitter/tree-sitter-c-sharp |
+| tree-sitter-java | 0.23.5 | MIT | https://github.com/tree-sitter/tree-sitter-java |
+| tree-sitter-kt | 0.1.0 | MIT | https://github.com/joowani/tree-sitter-kotlin |
 | tree-sitter-powershell | 0.26.6 | MIT | https://github.com/airbus-cert/tree-sitter-powershell |
 
 ## Other crates

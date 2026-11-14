@@ -773,3 +773,78 @@ fn the_safety_check_only_looks_through_a_lone_script_block() {
     ));
     assert!(!powershell_means_the_same("Get-A{ 1 }\n", "Get-A 1\n"));
 }
+
+// ---------------------------------------------------------------------------------------
+// Array lists in braces follow column_width.
+
+#[test]
+fn csharp_array_lists_in_braces_follow_column_width() {
+    let narrow = settings("[formatting]\ncolumn_width = 40\n");
+    let one_line = "var sizes = new[] { 10, 20, 30, 40, 50, 60 };\n";
+    let wrapped = "var sizes = new[] {\n    10,\n    20,\n    30,\n    40,\n    50,\n    60\n};\n";
+    check_with("cs", &narrow, one_line, wrapped);
+    // With room again, the list goes back on one line. So does a short list that was
+    // written over several lines.
+    check("cs", wrapped, one_line);
+    check(
+        "cs",
+        "var names = new List<string> {\n    \"a\",\n    \"b\"\n};\nint[] more = {\n    1,\n    2\n};\n",
+        "var names = new List<string> { \"a\", \"b\" };\nint[] more = { 1, 2 };\n",
+    );
+}
+
+#[test]
+fn csharp_lists_in_braces_that_keep_their_lines() {
+    let narrow = settings("[formatting]\ncolumn_width = 40\n");
+    let kept = [
+        // The `{` on a line of its own: the list is laid out like a block.
+        "var sizes = new[]\n{\n    10,\n    20\n};\n",
+        // A comma after the last item.
+        "var sizes = new[] {\n    10,\n    20,\n};\n",
+        // A comment inside.
+        "var sizes = new[] {\n    10,  // ten\n    20\n};\n",
+        // An object: it has names inside, so it is not an array.
+        "var item = new Item {\n    Name = \"a\",\n    Size = 2\n};\n",
+        "var item = new Item { Name = \"a long name\", Size = 2, Kind = 3 };\n",
+        "var map = new Dictionary<string, int> {\n    [\"a\"] = 1\n};\n",
+    ];
+    for source in kept {
+        check("cs", source, source);
+        check_with("cs", &narrow, source, source);
+    }
+}
+
+#[test]
+fn objects_in_braces_keep_their_lines_in_other_languages() {
+    let narrow = settings("[formatting]\ncolumn_width = 40\n");
+    // JSON objects are not listed: they follow `column_width`, see the JSON tests.
+    let kept = [
+        ("ts", "const point = {\n    x: 1,\n    y: 2\n};\n"),
+        (
+            "rs",
+            "use std::collections::{\n    HashMap,\n    HashSet\n};\n",
+        ),
+    ];
+    for (extension, source) in kept {
+        check(extension, source, source);
+        check_with(extension, &narrow, source, source);
+    }
+}
+
+#[test]
+fn spaces_at_the_very_end_of_a_file_are_kept_when_trimming_is_off() {
+    // With trimming and the final line break both off, a second run changes nothing.
+    let config =
+        settings("[formatting]\ntrim_trailing_whitespace = false\nfinal_newline = false\n");
+    let samples = [
+        ("rs", "fn main() {}  \n", "fn main() {}  "),
+        ("java", "class A {}\t \n\n", "class A {}\t "),
+        ("kt", "val x = 1   ", "val x = 1   "),
+        ("json", "[1, 2] ", "[1, 2] "),
+    ];
+    for (extension, source, expected) in samples {
+        check_with(extension, &config, source, expected);
+    }
+    // With trimming on they are removed, as everywhere else.
+    check("rs", "fn main() {}  ", "fn main() {}\n");
+}

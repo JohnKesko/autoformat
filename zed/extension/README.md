@@ -1,6 +1,6 @@
 # AutoFormat for Zed
 
-One formatter for Rust, TOML, TypeScript, JavaScript, C# and PowerShell.
+One formatter for Rust, TOML, JSON, TypeScript, JavaScript, C#, Java, Kotlin and PowerShell.
 It uses the same `autoformat.toml` as the VS Code extension.
 
 ## Install
@@ -20,10 +20,14 @@ Zed never switches formatter by itself. Add this to your Zed settings (`zed: ope
 "languages": {
     "Rust":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "TOML":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "JSON":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "JSONC":      { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "JavaScript": { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "TypeScript": { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "TSX":        { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "CSharp":     { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "Java":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "Kotlin":     { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "PowerShell": { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" }
 }
 ```
@@ -32,8 +36,8 @@ Save a file. It is formatted.
 
 ## Good to know
 
-- The extension downloads the `autoformat` program from this project's GitHub releases. You need a release newer than 0.1.2.
-- For TOML, C# and PowerShell you also need Zed's extension for that language.
+- The extension downloads the `autoformat` program from this project's GitHub releases. You need a release newer than 0.1.2. JSON, Java and Kotlin need release 0.1.4 or newer.
+- For TOML, C#, Java, Kotlin and PowerShell you also need Zed's extension for that language.
 - A file with a syntax error is not changed.
 
 ## Use your own autoformat program

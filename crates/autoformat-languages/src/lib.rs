@@ -14,10 +14,13 @@ impl Languages {
         let adapters: Vec<Box<dyn LanguageAdapter>> = vec![
             Box::new(autoformat_lang_rust::RustLanguage::new()),
             Box::new(autoformat_lang_toml::TomlLanguage::new()),
+            Box::new(autoformat_lang_json::JsonLanguage::new()),
             Box::new(autoformat_lang_javascript::JavaScriptLanguage::new()),
             Box::new(autoformat_lang_typescript::TypeScriptLanguage::new()),
             Box::new(autoformat_lang_typescript::TsxLanguage::new()),
             Box::new(autoformat_lang_csharp::CSharpLanguage::new()),
+            Box::new(autoformat_lang_java::JavaLanguage::new()),
+            Box::new(autoformat_lang_kotlin::KotlinLanguage::new()),
             Box::new(autoformat_lang_powershell::PowerShellLanguage::new()),
         ];
         Languages { adapters }
@@ -76,6 +79,38 @@ mod tests {
         assert_eq!(
             languages.for_path(Path::new("Cargo.toml")).unwrap().name(),
             "toml"
+        );
+        assert_eq!(
+            languages
+                .for_path(Path::new("package.json"))
+                .unwrap()
+                .name(),
+            "json"
+        );
+        assert_eq!(
+            languages
+                .for_path(Path::new("settings.jsonc"))
+                .unwrap()
+                .name(),
+            "json"
+        );
+        assert_eq!(
+            languages
+                .for_path(Path::new("src/Main.java"))
+                .unwrap()
+                .name(),
+            "java"
+        );
+        assert_eq!(
+            languages.for_path(Path::new("src/Main.kt")).unwrap().name(),
+            "kotlin"
+        );
+        assert_eq!(
+            languages
+                .for_path(Path::new("build.gradle.kts"))
+                .unwrap()
+                .name(),
+            "kotlin"
         );
         assert_eq!(
             languages.for_path(Path::new("MAIN.RS")).unwrap().name(),

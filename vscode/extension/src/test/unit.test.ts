@@ -33,6 +33,10 @@ test("VS Code languages map to AutoFormat languages", () => {
     assert.strictEqual(autoformatLanguage("typescriptreact"), "tsx");
     assert.strictEqual(autoformatLanguage("javascriptreact"), "javascript");
     assert.strictEqual(autoformatLanguage("csharp"), "csharp");
+    assert.strictEqual(autoformatLanguage("java"), "java");
+    assert.strictEqual(autoformatLanguage("kotlin"), "kotlin");
+    assert.strictEqual(autoformatLanguage("json"), "json");
+    assert.strictEqual(autoformatLanguage("jsonc"), "json");
     assert.strictEqual(autoformatLanguage("markdown"), undefined);
     assert.deepStrictEqual(formatArguments("rust", "/a/b.rs"), ["format", "--stdin", "--language", "rust", "--stdin-filepath", "/a/b.rs"]);
 });

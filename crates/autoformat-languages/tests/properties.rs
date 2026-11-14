@@ -16,9 +16,12 @@ fn fixture_files() -> Vec<PathBuf> {
     for language in [
         "rust",
         "toml",
+        "json",
         "javascript",
         "typescript",
         "csharp",
+        "java",
+        "kotlin",
         "powershell",
     ] {
         let directory = root.join(language).join("tests/fixtures");
@@ -108,7 +111,7 @@ fn without_whitespace(text: &str) -> String {
 fn every_fixture_is_idempotent_and_only_whitespace_changes() {
     let languages = Languages::new();
     let files = fixture_files();
-    assert!(files.len() >= 12, "expected fixtures for every language");
+    assert!(files.len() >= 19, "expected fixtures for every language");
     for path in files {
         let adapter = languages.for_path(&path).unwrap();
         let source = std::fs::read_to_string(&path).unwrap();
@@ -197,9 +200,14 @@ fn syntax_errors_never_produce_output() {
     let broken = [
         ("rs", "fn main( {"),
         ("toml", "[a\nb = "),
+        ("json", "{\"a\": }"),
+        ("jsonc", "[1, 2"),
         ("js", "function ( {"),
         ("ts", "let x: = 1;"),
         ("cs", "class { void }"),
+        ("java", "class A { void run( { } }"),
+        ("kt", "fun run( {\n}\n"),
+        ("kts", "val x = = 1\n"),
         ("ps1", "function { if ( }"),
     ];
     for (extension, source) in broken {
@@ -220,6 +228,11 @@ fn comments_are_never_lost_or_duplicated() {
         ),
         ("toml", "# a\nkey = 1 # b\n# c\n[t] # d\n", "#"),
         (
+            "jsonc",
+            "// a\n{ // b\n    \"x\": 1, /* c */ // d\n    \"y\": [1, // e\n        2]\n}\n// f\n",
+            "//",
+        ),
+        (
             "js",
             "// a\nfunction f() { /* b */ return 1; // c\n}\n",
             "//",
@@ -227,6 +240,16 @@ fn comments_are_never_lost_or_duplicated() {
         (
             "cs",
             "// a\nclass A { // b\n    int x; /* c */ // d\n}\n",
+            "//",
+        ),
+        (
+            "java",
+            "// a\nclass A { // b\n    int x; /* c */ // d\n    /** e */\n    void run() { go(); // f\n    }\n}\n// g\n",
+            "//",
+        ),
+        (
+            "kt",
+            "// a\nclass A { // b\n    val x = 1 /* c */ // d\n    /** e */\n    fun run() { go() // f\n    }\n}\n// g\n",
             "//",
         ),
         (

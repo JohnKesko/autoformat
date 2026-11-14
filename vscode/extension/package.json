@@ -1,7 +1,7 @@
 {
   "name": "autoformat",
   "displayName": "AutoFormat",
-  "description": "One formatter for Rust, TOML, TypeScript, JavaScript, C# and PowerShell. No other tools needed.",
+  "description": "One formatter for Rust, TOML, JSON, TypeScript, JavaScript, C#, Java, Kotlin and PowerShell. No other tools needed.",
   "version": "0.1.3",
   "publisher": "JohnK",
   "license": "MIT",
@@ -24,20 +24,27 @@
     "formatter",
     "rust",
     "toml",
+    "json",
     "typescript",
     "javascript",
     "csharp",
+    "java",
+    "kotlin",
     "powershell"
   ],
   "main": "./out/extension.js",
   "activationEvents": [
     "onLanguage:rust",
     "onLanguage:toml",
+    "onLanguage:json",
+    "onLanguage:jsonc",
     "onLanguage:javascript",
     "onLanguage:javascriptreact",
     "onLanguage:typescript",
     "onLanguage:typescriptreact",
     "onLanguage:csharp",
+    "onLanguage:java",
+    "onLanguage:kotlin",
     "onLanguage:powershell"
   ],
   "contributes": {

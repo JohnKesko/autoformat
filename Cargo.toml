@@ -7,9 +7,12 @@ members = [
     "crates/autoformat-languages",
     "crates/autoformat-languages/rust",
     "crates/autoformat-languages/toml",
+    "crates/autoformat-languages/json",
     "crates/autoformat-languages/javascript",
     "crates/autoformat-languages/typescript",
     "crates/autoformat-languages/csharp",
+    "crates/autoformat-languages/java",
+    "crates/autoformat-languages/kotlin",
     "crates/autoformat-languages/powershell",
     "crates/autoformat-cli",
 ]
@@ -29,9 +32,12 @@ autoformat-core = { path = "crates/autoformat-core" }
 autoformat-languages = { path = "crates/autoformat-languages" }
 autoformat-lang-rust = { path = "crates/autoformat-languages/rust" }
 autoformat-lang-toml = { path = "crates/autoformat-languages/toml" }
+autoformat-lang-json = { path = "crates/autoformat-languages/json" }
 autoformat-lang-javascript = { path = "crates/autoformat-languages/javascript" }
 autoformat-lang-typescript = { path = "crates/autoformat-languages/typescript" }
 autoformat-lang-csharp = { path = "crates/autoformat-languages/csharp" }
+autoformat-lang-java = { path = "crates/autoformat-languages/java" }
+autoformat-lang-kotlin = { path = "crates/autoformat-languages/kotlin" }
 autoformat-lang-powershell = { path = "crates/autoformat-languages/powershell" }
 
 # Third-party crates. All are MIT or MIT/Apache-2.0 licensed (see THIRD_PARTY_LICENSES.md).
@@ -42,9 +48,12 @@ serde_json = "1.0"
 tree-sitter = "0.27"
 tree-sitter-rust = "0.24"
 tree-sitter-toml-ng = "0.7"
+tree-sitter-json = "0.24"
 tree-sitter-javascript = "0.25"
 tree-sitter-typescript = "0.23"
 tree-sitter-c-sharp = "0.23"
+tree-sitter-java = "0.23"
+tree-sitter-kt = "0.1"
 tree-sitter-powershell = "0.26"
 
 # Only for `autoformat upgrade`: HTTPS downloads, checksums, unpacking, replacing the program.

@@ -10,9 +10,12 @@ rust-version.workspace = true
 autoformat-core.workspace = true
 autoformat-lang-rust.workspace = true
 autoformat-lang-toml.workspace = true
+autoformat-lang-json.workspace = true
 autoformat-lang-javascript.workspace = true
 autoformat-lang-typescript.workspace = true
 autoformat-lang-csharp.workspace = true
+autoformat-lang-java.workspace = true
+autoformat-lang-kotlin.workspace = true
 autoformat-lang-powershell.workspace = true
 
 [dev-dependencies]

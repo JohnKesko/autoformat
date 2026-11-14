@@ -3,7 +3,7 @@
 use autoformat_parser::tree_sitter::Node;
 use autoformat_parser::{Grammar, SyntaxTree};
 
-use crate::context::TokenContext;
+use crate::context::{Role, TokenContext};
 use crate::layout::Spacing;
 
 /// Tables of node kinds that describe a language to the shared formatting rules.
@@ -25,8 +25,9 @@ pub struct LanguageRules {
     /// decorators belong here so that the line after `[Test]` is not treated as a
     /// continuation.
     pub prefix_kinds: &'static [&'static str],
-    /// Nodes whose brackets may be wrapped when a line is too long (argument lists,
+    /// Nodes whose `( )` or `[ ]` may be wrapped when a line is too long (argument lists,
     /// arrays...). The kind is the kind of the node that directly contains the brackets.
+    /// For lists in `{ }` see [`LanguageAdapter::is_array_in_braces`].
     pub wrappable_kinds: &'static [&'static str],
     /// Tokens that use one level less continuation indentation when they start a line:
     /// `else`, `catch`, `{` and similar.
@@ -120,7 +121,39 @@ pub trait LanguageAdapter: Send + Sync {
         None
     }
 
-    /// Whether the brackets directly inside `list_node` may be wrapped.
+    /// Language-specific role of a token that is not a comment or a bracket.
+    /// `parent_kind` is the kind of the token's parent node, or `""`.
+    /// Return `None` to use the shared rules.
+    ///
+    /// Kotlin uses this for the `=` of `fun f() = 1`: the grammar puts that `=` first in
+    /// its node, so the shared rules would take it for an operator in front of a value.
+    fn role(&self, _node: Node, _text: &str, _parent_kind: &str) -> Option<Role> {
+        None
+    }
+
+    /// Whether this node belongs to the node written before it, although the grammar
+    /// puts the two side by side. Kotlin's `get()` and `set(value)` belong to the
+    /// property above them: they are indented under it, and `blank_lines` never puts an
+    /// empty line between them. `parent_kind` is the kind of the node's parent, or `""`.
+    fn joins_previous_sibling(&self, _node: Node, _parent_kind: &str) -> bool {
+        false
+    }
+
+    /// Whether `blank_lines` separates these two neighbours even when both fit on one
+    /// line. Java and Kotlin use this after the `package` line and after the imports.
+    fn always_separated(&self, _before: Node, _after: Node) -> bool {
+        false
+    }
+
+    /// Whether the `{ }` directly inside `list_node` hold an array: a plain list of values
+    /// such as Java's `{1, 2, 3}`. Such a list follows `column_width`, like a list in
+    /// `( )` or `[ ]`. Every other list in braces (objects, code blocks) keeps the line
+    /// breaks it was written with.
+    fn is_array_in_braces(&self, _list_node: Node) -> bool {
+        false
+    }
+
+    /// Whether the `( )` or `[ ]` directly inside `list_node` may be wrapped.
     fn is_wrappable(&self, list_node: Node, _open_text: &str) -> bool {
         self.rules().wrappable_kinds.contains(&list_node.kind())
     }

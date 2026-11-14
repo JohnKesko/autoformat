@@ -8,9 +8,12 @@ Uses [Tree-sitter](https://tree-sitter.github.io/) grammars to understand the co
 
 - Rust   
 - TOML   
+- JSON   
 - TypeScript   
 - JavaScript   
 - C#   
+- Java   
+- Kotlin   
 - PowerShell   
 
 ## Supported IDE's
@@ -70,7 +73,7 @@ indent_size = 2              # PowerShell is indented 2, everything else 4
 - Every setting can be overridden.
 - A language table only changes the settings you put in it. The rest come from `[formatting]`.
 - Languages without their own table use the settings under `[formatting]`.
-- Language names: `rust`, `toml`, `javascript`, `typescript` (also used for `.tsx`), `csharp`, `powershell`.
+- Language names: `rust`, `toml`, `json` (also used for `.jsonc`), `javascript`, `typescript` (also used for `.tsx`), `csharp`, `java`, `kotlin`, `powershell`.
 
 ## What each setting does
 
@@ -103,7 +106,9 @@ pub async fn incoming(
 pub async fn incoming(stream: TcpStream, tls_acceptor: TlsAcceptor, context: Arc<Context>) {}
 ```
 
-A list is left exactly as you wrote it if it ends with a comma after the last item, or has a comment inside. Lists in `{ }` (objects, initializers, struct bodies) are never wrapped.
+A list is left exactly as you wrote it if it ends with a comma after the last item, or has a comment inside.
+
+Array lists in `{ }` work the same way: Java `int[] sizes = {1, 2, 3};` and C# `new[] { 1, 2, 3 }`. In C#, a list whose `{` you put on a line of its own is laid out like a block and keeps its lines. JSON objects follow `column_width` too. All other lists in `{ }` (JavaScript objects, object initializers like `new A { X = 1 }`, struct bodies) are never wrapped and keep the line breaks you wrote.
 
 ```
 # comment_alignment -  Aligns comments based on the length of the left side.
@@ -191,12 +196,17 @@ Only the braces of real code blocks: functions, methods, classes, structs, inter
 These never move:
 - Object literals, destructuring and arrow functions (JavaScript, TypeScript)
 - Object and collection initializers, lambdas and switch expressions (C#)
+- Lambdas, anonymous classes, array initializers, the bodies of enum values and the block of a `case 1: { }` (Java)
+- Lambdas (`items.forEach { }`), `object : Type { }`, anonymous functions and the bodies of enum values (Kotlin)
 - Macros, struct literals, closures, and `if` / `match` used as a value (Rust)
 - Script blocks like `ForEach-Object { }` and hashtables (PowerShell)
 - Inline tables (TOML has no code blocks, so `brace_style` does nothing there)
+- Objects (JSON has no code blocks either)
 - Anything inside strings and comments
 
 A block written on one line, like `if (x) { return; }`, stays on one line.
+
+A `{` never moves up behind a comment that runs to the end of its line (`// note`), because it would become part of the comment. Behind a closed comment, as in `class A /* note */ {`, it moves like any other brace.
 
 ```
 # blank_lines - One empty line between functions, classes, methods and other declarations
@@ -268,7 +278,7 @@ final_newline = true
 trim_trailing_whitespace = true
 ```
 
-- Never inside strings. Multi-line strings, raw strings, template strings, here-strings and C# `@"..."` strings keep every space.
+- Never inside strings. Multi-line strings, raw strings, template strings, here-strings, Java text blocks (`"""`), Kotlin raw strings (`"""`) and C# `@"..."` strings keep every space.
 - `false`: spaces at the end of a line are left as you wrote them.
 
 ```
@@ -301,6 +311,8 @@ Get-WindowsImage -ImagePath $img.FullName | ForEach-Object {
 |---|---|
 | Rust | Functions, structs, enums, traits, `impl`, `mod`, `use`, `const`, `static` and macros. At the top of the file and inside `mod`, `impl` and `trait`. |
 | C# | Namespaces, classes, structs, interfaces, records, enums, methods, constructors, properties, fields and events |
+| Java | Classes, interfaces, records, enums, annotation types, methods, constructors, fields and `static { }` blocks. Also one empty line after the `package` line and after the imports. |
+| Kotlin | Classes, interfaces, objects, `companion object`, functions, properties (with their `get` / `set`), constructors, `init { }` blocks and `typealias`. At the top of the file and inside classes. Also one empty line after the `package` line and after the imports. |
 | JavaScript / TypeScript | Functions, classes and `export` at the top of the file, and methods and fields inside classes. TypeScript also: interfaces, types, enums and namespaces. `const` and `let` are normal code and are left alone. |
 | PowerShell | Functions, classes and enums, and methods and properties inside classes |
 | TOML | Tables: `[table]` and `[[array]]` |
@@ -315,7 +327,7 @@ One small exception: `trim_trailing_whitespace = false` means "don't remove spac
 
 - It never adds, removes or reorders anything. Commas, semicolons, quotes and parentheses stay exactly as you wrote them. Only spaces and line breaks change.
 - It never changes the inside of strings or comments. The only exception: spaces at the end of a comment line are removed (see `trim_trailing_whitespace`).
-- It never joins lines you split, except in two cases: lists in `( )` and `[ ]` that fit within `column_width` are put back on one line, and `brace_style = "same_line"` moves a `{` up to the line before it.
+- It never joins lines you split, except in two cases: lists in `( )` and `[ ]` (and array lists and JSON objects in `{ }`) that fit within `column_width` are put back on one line, and `brace_style = "same_line"` moves a `{` up to the line before it.
 - It never formats a file that has syntax errors.
 - It never moves a comment to a different place in the code.
 - It never changes what your code does. After formatting, AutoFormat reads the result again and compares it with the original. If anything other than spacing changed, it does less, or nothing.
@@ -340,7 +352,7 @@ Here VS Code decides which formatter to use. If you have more than one formatter
 To always use AutoFormat, add this to your VS Code settings:
 
 ```json
-"[rust][toml][javascript][javascriptreact][typescript][typescriptreact][csharp][powershell]": {
+"[rust][toml][json][jsonc][javascript][javascriptreact][typescript][typescriptreact][csharp][java][kotlin][powershell]": {
     "editor.defaultFormatter": "JohnK.autoformat"
 }
 ```
@@ -354,10 +366,14 @@ To always use AutoFormat, add this to your VS Code settings:
 "languages": {
     "Rust":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "TOML":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "JSON":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "JSONC":      { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "JavaScript": { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "TypeScript": { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "TSX":        { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "CSharp":     { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "Java":       { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
+    "Kotlin":     { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" },
     "PowerShell": { "formatter": { "language_server": { "name": "autoformat" } }, "format_on_save": "on" }
 }
 ```
@@ -367,7 +383,7 @@ To always use AutoFormat, add this to your VS Code settings:
 Good to know:
 
 - Zed does not allow extensions to include programs. The first time it is needed, the extension downloads the `autoformat` program from this project's GitHub releases, and it gets newer versions the same way. Without internet it keeps using the one it already has.
-- Zed knows Rust, JavaScript and TypeScript from the start. For TOML, C# and PowerShell files you also need Zed's extension for that language. Zed offers to install it when you open such a file.
+- Zed knows Rust, JSON, JavaScript and TypeScript from the start. For TOML, C#, Java, Kotlin and PowerShell files you also need Zed's extension for that language. Zed offers to install it when you open such a file.
 - `.jsx` files are "JavaScript" in Zed, and `.tsx` files are "TSX".
 - A file with a syntax error is not changed. The reason is in Zed's log for the AutoFormat language server (`dev: open language server logs`).
 - A mistake in `autoformat.toml` is shown as a message in Zed.
@@ -459,16 +475,22 @@ Other commands:
 |---|---|
 | Rust | `.rs` |
 | TOML | `.toml` |
+| JSON | `.json` `.jsonc` |
 | JavaScript | `.js` `.mjs` `.cjs` `.jsx` |
 | TypeScript | `.ts` `.mts` `.cts` `.tsx` |
 | C# | `.cs` `.csx` |
+| Java | `.java` |
+| Kotlin | `.kt` `.kts` |
 | PowerShell | `.ps1` `.psm1` `.psd1` |
 
 Good to know:
 - **Rust**: inside macros like `println!(...)` only commas and brackets get spaced. A `{` after a `where` clause stays on its own line.
 - **TOML**: keys inside tables are not indented.
+- **JSON**: `.jsonc` files are JSON with comments, and comments are kept. Arrays in `[ ]` and objects in `{ }` both follow `column_width`: on one line when they fit, one item per line when they do not. One with a comment or an empty line inside keeps the line breaks you wrote. No comma is ever added or removed. A file with a comma after the last item (`[1, 2,]`) or a number written like `1e+5` is not understood, so it is left unchanged.
 - **JavaScript / TypeScript**: JSX markup is kept as written, it is only moved left or right as a whole. The braces of `namespace X { }` never move.
-- **C#**: `#if`, `#else` and `#endif` start at the left edge. `#region` lines are indented like code.
+- **C#**: `#if`, `#else` and `#endif` start at the left edge. `#region` lines are indented like code. Array and collection lists in braces (`new[] { 1, 2, 3 }`) follow `column_width`.
+- **Java**: generics get no spaces inside the angle brackets (`Map<String, List<Integer>>`), array initializers none inside the braces (`{1, 2, 3}`) and they follow `column_width`, and a cast is followed by one space (`(int) value`). The line after an annotation like `@Override` is not indented. Text blocks (`"""`) are printed exactly as written. All `switch` braces follow `brace_style`, also when the `switch` is used as a value, and so does the block of a `case 1 -> { }`.
+- **Kotlin**: Kotlin has no semicolons, so a line break can end a statement. AutoFormat never adds a line break where that could change the code: long lines are only wrapped after a comma inside `( )` and `[ ]`, never before `+`, `&&`, `.` or `?:`. The `{` of a lambda never moves, because `run {` and `run` followed by `{` on the next line do not mean the same. Strings with `$name` and `${...}`, raw strings (`"""`) and numbers are printed exactly as written. `class A : B` gets a space on both sides of the colon, `name: Type` only after it, and `@get:Rule` none. Generics get no spaces inside the angle brackets. `String?`, `value!!`, `return@loop` and `this@Outer` are kept together, and ranges (`1..10`, `0..<size`) keep the spacing you wrote. `get()` and `set(value)` are indented under their property.
 - **PowerShell**: PowerShell cares about spaces, so only safe spacing is changed (after commas, around `=` and `|`, after `if`, inside brackets, and before the `{` of a block that follows a command, like `ForEach-Object {`). Other operators like `+`, `-` and `-eq` are left as you wrote them, because in PowerShell a space can change what they mean.
 - Spaces used to line up `=` signs are reduced to one.
 

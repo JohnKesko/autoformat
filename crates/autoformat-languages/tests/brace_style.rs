@@ -362,6 +362,54 @@ fn csharp_comments_around_braces() {
 }
 
 #[test]
+fn a_closed_comment_before_a_brace_can_be_changed_back() {
+    // `/* note */` behind code: the brace joins the line again in same_line style.
+    let samples = [
+        (
+            "cs",
+            "class A /* note */ {\n    void M() {\n        if (x) {\n            Y();\n        } else /* why */ {\n            Z();\n        }\n    }\n}\n",
+            "class A  /* note */\n{\n    void M()\n    {\n        if (x)\n        {\n            Y();\n        }\n        else  /* why */\n        {\n            Z();\n        }\n    }\n}\n",
+        ),
+        (
+            "java",
+            "class A /* note */ {\n    void run() /* why */ {\n        go();\n    }\n}\n",
+            "class A  /* note */\n{\n    void run()  /* why */\n    {\n        go();\n    }\n}\n",
+        ),
+        (
+            "rs",
+            "fn main() /* a */ {\n    if x /* b */ {\n        y();\n    }\n}\n",
+            "fn main()  /* a */\n{\n    if x  /* b */\n    {\n        y();\n    }\n}\n",
+        ),
+        (
+            "ts",
+            "function f() /* a */ {\n    while (x) /* b */ {\n        y();\n    }\n}\n",
+            "function f()  /* a */\n{\n    while (x)  /* b */\n    {\n        y();\n    }\n}\n",
+        ),
+        (
+            "ps1",
+            "function F {\n    if ($x) <# b #> {\n        1\n    }\n}\n",
+            "function F\n{\n    if ($x)  <# b #>\n    {\n        1\n    }\n}\n",
+        ),
+    ];
+    for (extension, same_line, allman) in samples {
+        check(extension, BraceStyle::Allman, same_line, allman);
+        check(extension, BraceStyle::SameLine, allman, same_line);
+        let gnu = format(extension, same_line, &config(BraceStyle::Gnu));
+        check(extension, BraceStyle::SameLine, &gnu, same_line);
+        check(extension, BraceStyle::Allman, &gnu, allman);
+    }
+}
+
+#[test]
+fn other_comments_before_a_brace_keep_it_on_its_own_line() {
+    // After `// note` a joined brace would become part of the comment, and a comment on
+    // a line of its own stays the last thing on its line.
+    let source = "while (x)  // note\n{\n    Go();\n}\nfor (;;)\n/* own line */\n{\n    Go();\n}\n";
+    check("cs", BraceStyle::SameLine, source, source);
+    check("cs", BraceStyle::Allman, source, source);
+}
+
+#[test]
 fn csharp_comment_alignment_after_brace_moves() {
     let source = "void F()\n{\n    int a = 1; // first\n    if (a > 0)\n    { // second\n        Run();\n    }\n}\n";
     let expected = "void F() {\n    int a = 1;    // first\n    if (a > 0) {  // second\n        Run();\n    }\n}\n";
@@ -870,6 +918,274 @@ fn tsx_files_use_the_typescript_override() {
         "function f()\n{\n    run();\n}\n",
         "function f() {\n    run();\n}\n",
     );
+}
+
+// ---------------------------------------------------------------------------------------
+// Java.
+
+const JAVA_SAME_LINE: &str = "\
+public class Orders {
+    public void process(Order item) {
+        if (item == null) {
+            return;
+        } else if (item.isEmpty()) {
+            skip();
+        } else {
+            run(item);
+        }
+        for (Order other : items) {
+            check(other);
+        }
+        try {
+            save();
+        } catch (IOException error) {
+            log(error);
+        } finally {
+            close();
+        }
+        do {
+            retry();
+        } while (busy);
+        switch (item.kind()) {
+            case 1 -> {
+                one();
+            }
+            default -> two();
+        }
+    }
+
+    public void empty() {
+    }
+}
+";
+
+const JAVA_ALLMAN: &str = "\
+public class Orders
+{
+    public void process(Order item)
+    {
+        if (item == null)
+        {
+            return;
+        }
+        else if (item.isEmpty())
+        {
+            skip();
+        }
+        else
+        {
+            run(item);
+        }
+        for (Order other : items)
+        {
+            check(other);
+        }
+        try
+        {
+            save();
+        }
+        catch (IOException error)
+        {
+            log(error);
+        }
+        finally
+        {
+            close();
+        }
+        do
+        {
+            retry();
+        }
+        while (busy);
+        switch (item.kind())
+        {
+            case 1 ->
+            {
+                one();
+            }
+            default -> two();
+        }
+    }
+
+    public void empty()
+    {
+    }
+}
+";
+
+#[test]
+fn java_converts_between_all_styles() {
+    // Every style can be reached from every other style.
+    for source in [JAVA_SAME_LINE, JAVA_ALLMAN] {
+        check("java", BraceStyle::SameLine, source, JAVA_SAME_LINE);
+        check("java", BraceStyle::Allman, source, JAVA_ALLMAN);
+    }
+    let gnu = format("java", JAVA_SAME_LINE, &config(BraceStyle::Gnu));
+    assert_eq!(gnu, format("java", JAVA_ALLMAN, &config(BraceStyle::Gnu)));
+    check("java", BraceStyle::SameLine, &gnu, JAVA_SAME_LINE);
+    check("java", BraceStyle::Allman, &gnu, JAVA_ALLMAN);
+}
+
+#[test]
+fn java_gnu_indents_braces_one_level() {
+    check_with(
+        "java",
+        &gnu_with_two_spaces(),
+        "class A {\n  void run(int x) {\n    if (x > 0) {\n      go();\n    } else {\n      stop();\n    }\n  }\n}\n",
+        "class A\n  {\n    void run(int x)\n      {\n        if (x > 0)\n          {\n            go();\n          }\n        else\n          {\n            stop();\n          }\n      }\n  }\n",
+    );
+}
+
+#[test]
+fn java_braces_that_are_not_code_blocks_never_move() {
+    // Array initializers, lambdas and anonymous classes.
+    let inside = "    int[] sizes = {\n        1, 2,\n    };\n\n    Runnable r = () -> {\n        go();\n    };\n\n    Object o = new Object() {\n    };\n";
+    let same_line = format!("class A {{\n{}}}\n", inside);
+    let allman = format!("class A\n{{\n{}}}\n", inside);
+    check("java", BraceStyle::SameLine, &same_line, &same_line);
+    check("java", BraceStyle::SameLine, &allman, &same_line);
+    check("java", BraceStyle::Allman, &allman, &allman);
+    check("java", BraceStyle::Allman, &same_line, &allman);
+}
+
+// ---------------------------------------------------------------------------------------
+// Kotlin.
+
+const KOTLIN_SAME_LINE: &str = "\
+class Orders(val items: List<Order>) : Service() {
+    val size: Int
+        get() {
+            return items.size
+        }
+
+    init {
+        check(items.isNotEmpty())
+    }
+
+    fun process(item: Order?) {
+        if (item == null) {
+            return
+        } else if (item.isEmpty()) {
+            skip()
+        } else {
+            run(item)
+        }
+        for (other in items) {
+            check(other)
+        }
+        try {
+            save()
+        } catch (error: IOException) {
+            log(error)
+        } finally {
+            close()
+        }
+        do {
+            retry()
+        } while (busy)
+        when (item.kind) {
+            1 -> {
+                one()
+            }
+            else -> two()
+        }
+    }
+
+    companion object {
+        const val MAX = 10
+    }
+}
+";
+
+const KOTLIN_ALLMAN: &str = "\
+class Orders(val items: List<Order>) : Service()
+{
+    val size: Int
+        get()
+        {
+            return items.size
+        }
+
+    init
+    {
+        check(items.isNotEmpty())
+    }
+
+    fun process(item: Order?)
+    {
+        if (item == null)
+        {
+            return
+        }
+        else if (item.isEmpty())
+        {
+            skip()
+        }
+        else
+        {
+            run(item)
+        }
+        for (other in items)
+        {
+            check(other)
+        }
+        try
+        {
+            save()
+        }
+        catch (error: IOException)
+        {
+            log(error)
+        }
+        finally
+        {
+            close()
+        }
+        do
+        {
+            retry()
+        }
+        while (busy)
+        when (item.kind)
+        {
+            1 ->
+            {
+                one()
+            }
+            else -> two()
+        }
+    }
+
+    companion object
+    {
+        const val MAX = 10
+    }
+}
+";
+
+#[test]
+fn kotlin_block_braces_follow_brace_style() {
+    for source in [KOTLIN_SAME_LINE, KOTLIN_ALLMAN] {
+        check("kt", BraceStyle::SameLine, source, KOTLIN_SAME_LINE);
+        check("kt", BraceStyle::Allman, source, KOTLIN_ALLMAN);
+    }
+    let gnu = format("kt", KOTLIN_SAME_LINE, &config(BraceStyle::Gnu));
+    assert_eq!(gnu, format("kt", KOTLIN_ALLMAN, &config(BraceStyle::Gnu)));
+    check("kt", BraceStyle::SameLine, &gnu, KOTLIN_SAME_LINE);
+    check("kt", BraceStyle::Allman, &gnu, KOTLIN_ALLMAN);
+}
+
+#[test]
+fn kotlin_lambda_braces_never_move() {
+    // Kotlin has no semicolons: `run {` and `run` + line break + `{` do not mean the
+    // same. Lambdas, `object : Type {` and anonymous functions stay as written.
+    let inside = "    items.forEach {\n        use(it)\n    }\n    val job = launch(context) { value ->\n        work(value)\n    }\n    val listener = object : Listener {\n    }\n    val action = fun(x: Int): Int {\n        return x\n    }\n    start()\n        {\n            later()\n        }\n";
+    let same_line = format!("fun run() {{\n{}}}\n", inside);
+    let allman = format!("fun run()\n{{\n{}}}\n", inside);
+    check("kt", BraceStyle::SameLine, &same_line, &same_line);
+    check("kt", BraceStyle::SameLine, &allman, &same_line);
+    check("kt", BraceStyle::Allman, &allman, &allman);
+    check("kt", BraceStyle::Allman, &same_line, &allman);
 }
 
 // ---------------------------------------------------------------------------------------

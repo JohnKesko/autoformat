@@ -3,6 +3,8 @@
 //! This is where the syntax tree is turned into layout facts: which tokens are brackets,
 //! where statements start (for continuation indentation), and how tokens are spaced.
 
+use std::collections::HashMap;
+
 use autoformat_parser::tree_sitter::Node;
 use autoformat_parser::{ParentMap, RawToken, SyntaxTree};
 
@@ -61,10 +63,12 @@ pub fn build_layout(
         let is_open = opens[index].is_some();
         let is_close = closes[index].is_some();
         contexts.push(make_context(
-            index, raw, source, rules, is_open, is_close, &parents,
+            index, raw, source, adapter, is_open, is_close, &parents,
         ));
     }
 
+    // Filled in by `find_anchors`, so that each syntax node is only looked at once.
+    let mut owner_anchors: HashMap<usize, Option<usize>> = HashMap::new();
     let mut tokens: Vec<LayoutToken> = Vec::with_capacity(count);
     for index in 0..count {
         let context = &contexts[index];
@@ -100,8 +104,16 @@ pub fn build_layout(
         if let Some(node) = raw.node {
             if !token.is_comment {
                 let stop = enclosing[index].map(|group| pairs[group].list_node.id());
-                token.anchors =
-                    find_anchors(node, index, stop, root_id, rules, &token_starts, &parents);
+                token.anchors = find_anchors(
+                    node,
+                    index,
+                    stop,
+                    root_id,
+                    adapter,
+                    &token_starts,
+                    &parents,
+                    &mut owner_anchors,
+                );
             }
             if token.is_multi_line() {
                 if token.is_comment {
@@ -167,15 +179,25 @@ pub fn build_layout(
             open: pair.open,
             close: pair.close,
             separators: find_separators(pair, group_index, &contexts, &enclosing, rules, &parents),
-            wrappable: adapter.is_wrappable(pair.list_node, open_text),
+            wrappable: is_wrappable_group(adapter, pair.list_node, open_text),
         });
     }
 
-    let declaration_gaps = find_declaration_gaps(tree, rules, &token_starts);
+    let declaration_gaps = find_declaration_gaps(tree, adapter, &token_starts);
     LayoutDocument {
         tokens,
         groups,
         declaration_gaps,
+    }
+}
+
+/// Whether a bracket group follows `column_width`: lists in `( )` and `[ ]` that the
+/// language allows, and arrays in `{ }`. Nothing else is ever wrapped or joined.
+fn is_wrappable_group(adapter: &dyn LanguageAdapter, list_node: Node, open_text: &str) -> bool {
+    match open_text {
+        "(" | "[" => adapter.is_wrappable(list_node, open_text),
+        "{" => adapter.is_array_in_braces(list_node),
+        _ => false,
     }
 }
 
@@ -193,6 +215,10 @@ fn spacing_without_operator_spaces(
     if spacing != Spacing::Space {
         return spacing;
     }
+    // The space after a comma or semicolon is not an operator space: `Map<?, ?>`.
+    if matches!(contexts[index - 1].role, Role::Comma | Role::Semicolon) {
+        return spacing;
+    }
     let previous_is_operator = is_spaced_operator(&contexts[index - 1]);
     let next_is_operator = is_spaced_operator(&contexts[index]);
     if !previous_is_operator && !next_is_operator {
@@ -208,10 +234,10 @@ fn spacing_without_operator_spaces(
 }
 
 /// Operators between two values: `=`, `+=`, `+`, `==`, `&&`, `|`, `? :` and so on.
-/// Not operators that belong to one value (`-x`, `!done`, `i++`), and not the arrows
-/// `->` and `=>`.
+/// Not operators that belong to one value (`-x`, `!done`, `i++`), not the arrows
+/// `->` and `=>`, and not the `...` of Java's `String... names`.
 fn is_spaced_operator(context: &TokenContext) -> bool {
-    if context.text == "->" || context.text == "=>" {
+    if context.text == "->" || context.text == "=>" || context.text == "..." {
         return false;
     }
     match context.role {
@@ -260,7 +286,7 @@ fn could_run_together(left: &str, right: &str) -> bool {
 }
 
 /// The spaces and tabs between a token and the end of its line in the source, if a line
-/// break follows the token.
+/// break or the end of the file follows the token.
 fn trailing_whitespace(source: &str, tokens: &[RawToken], index: usize) -> String {
     let end = tokens[index].end;
     let next_start = match tokens.get(index + 1) {
@@ -270,6 +296,9 @@ fn trailing_whitespace(source: &str, tokens: &[RawToken], index: usize) -> Strin
     let gap = &source[end..next_start];
     match gap.find('\n') {
         Some(newline) => gap[..newline].trim_end_matches('\r').to_string(),
+        // After the last token of a file that does not end with a line break, the rest
+        // of the file is the end of its line.
+        None if index + 1 == tokens.len() => gap.trim_end_matches('\r').to_string(),
         None => String::new(),
     }
 }
@@ -277,9 +306,10 @@ fn trailing_whitespace(source: &str, tokens: &[RawToken], index: usize) -> Strin
 /// Finds neighbouring declarations inside the language's declaration containers.
 fn find_declaration_gaps(
     tree: &SyntaxTree,
-    rules: &LanguageRules,
+    adapter: &dyn LanguageAdapter,
     token_starts: &[usize],
 ) -> Vec<DeclarationGap> {
+    let rules = adapter.rules();
     let mut gaps = Vec::new();
     if rules.declaration_kinds.is_empty() {
         return gaps;
@@ -297,7 +327,7 @@ fn find_declaration_gaps(
             }
         }
         if rules.declaration_containers.contains(&node.kind()) {
-            add_gaps_between_children(&children, rules, token_starts, &mut gaps);
+            add_gaps_between_children(node.kind(), &children, adapter, token_starts, &mut gaps);
         }
         for child in children {
             if child.child_count() > 0 && !rules.is_atomic(child) {
@@ -310,14 +340,16 @@ fn find_declaration_gaps(
 }
 
 fn add_gaps_between_children(
+    container_kind: &str,
     children: &[Node],
-    rules: &LanguageRules,
+    adapter: &dyn LanguageAdapter,
     token_starts: &[usize],
     gaps: &mut Vec<DeclarationGap>,
 ) {
-    // (kind, first token, last token) of each child. Attributes such as Rust's
+    let rules = adapter.rules();
+    // (node, first token, last token) of each child. Attributes such as Rust's
     // `#[test]` belong to the declaration after them.
-    let mut items: Vec<(&str, usize, usize)> = Vec::new();
+    let mut items: Vec<(Node, usize, usize)> = Vec::new();
     let mut pending_attribute_start: Option<usize> = None;
     for child in children {
         if !child.is_named() || child.is_extra() || child.end_byte() <= child.start_byte() {
@@ -329,6 +361,13 @@ fn add_gaps_between_children(
             continue;
         }
         let last = after_last - 1;
+        // Kotlin's `get()` / `set(value)` are part of the property before them.
+        if adapter.joins_previous_sibling(*child, container_kind) {
+            if let Some(previous_item) = items.last_mut() {
+                previous_item.2 = last;
+                continue;
+            }
+        }
         if rules.prefix_kinds.contains(&child.kind()) {
             if pending_attribute_start.is_none() {
                 pending_attribute_start = Some(first);
@@ -336,19 +375,21 @@ fn add_gaps_between_children(
             continue;
         }
         let first = pending_attribute_start.take().unwrap_or(first);
-        items.push((child.kind(), first, last));
+        items.push((*child, first, last));
     }
     for pair in items.windows(2) {
-        let (kind_before, first_before, last_before) = pair[0];
-        let (kind_after, first_after, last_after) = pair[1];
-        let is_declaration = rules.declaration_kinds.contains(&kind_before)
-            || rules.declaration_kinds.contains(&kind_after);
-        if is_declaration {
+        let (before, first_before, last_before) = pair[0];
+        let (after, first_after, last_after) = pair[1];
+        let is_declaration = rules.declaration_kinds.contains(&before.kind())
+            || rules.declaration_kinds.contains(&after.kind());
+        let always = adapter.always_separated(before, after);
+        if is_declaration || always {
             gaps.push(DeclarationGap {
                 first_before,
                 last_before,
                 first_after,
                 last_after,
+                always,
             });
         }
     }
@@ -454,11 +495,12 @@ fn make_context<'tree>(
     index: usize,
     raw: &RawToken<'tree>,
     source: &'tree str,
-    rules: &LanguageRules,
+    adapter: &dyn LanguageAdapter,
     opens: bool,
     closes: bool,
     parents: &'tree ParentMap<'tree>,
 ) -> TokenContext<'tree> {
+    let rules = adapter.rules();
     let text = &source[raw.start..raw.end];
     let node = match raw.node {
         Some(node) => node,
@@ -486,7 +528,10 @@ fn make_context<'tree>(
     } else if closes {
         Role::Close
     } else {
-        classify(node, text, parents)
+        match adapter.role(node, text, parent_kind) {
+            Some(role) => role,
+            None => classify(node, text, parents),
+        }
     };
     TokenContext {
         index,
@@ -537,15 +582,18 @@ fn classify(node: Node, text: &str, parents: &ParentMap) -> Role {
 
 /// The tokens where the syntax nodes around `node` start, from the innermost node out,
 /// stopping at the node that holds the innermost enclosing brackets.
+#[allow(clippy::too_many_arguments)]
 fn find_anchors(
     node: Node,
     index: usize,
     stop: Option<usize>,
     root_id: usize,
-    rules: &LanguageRules,
+    adapter: &dyn LanguageAdapter,
     token_starts: &[usize],
     parents: &ParentMap,
+    owner_anchors: &mut HashMap<usize, Option<usize>>,
 ) -> Vec<usize> {
+    let rules = adapter.rules();
     let mut anchors: Vec<usize> = Vec::new();
     let mut current = parents.parent(node);
     while let Some(ancestor) = current {
@@ -559,26 +607,93 @@ fn find_anchors(
                 anchors.push(anchor);
             }
         }
+        // Kotlin's `get()` / `set(value)` are indented under the property before them.
+        let owner_anchor = match owner_anchors.get(&ancestor.id()) {
+            Some(known) => *known,
+            None => {
+                let found = find_owner_anchor(ancestor, adapter, token_starts, parents);
+                owner_anchors.insert(ancestor.id(), found);
+                found
+            }
+        };
+        if let Some(anchor) = owner_anchor {
+            if anchor < index && anchors.last() != Some(&anchor) {
+                anchors.push(anchor);
+            }
+        }
         current = parents.parent(ancestor);
     }
     anchors
 }
 
+/// For a node that belongs to the node written before it (see
+/// [`LanguageAdapter::joins_previous_sibling`]): the token where that earlier node starts.
+fn find_owner_anchor(
+    node: Node,
+    adapter: &dyn LanguageAdapter,
+    token_starts: &[usize],
+    parents: &ParentMap,
+) -> Option<usize> {
+    let parent_kind = match parents.parent(node) {
+        Some(parent) => parent.kind(),
+        None => "",
+    };
+    if !adapter.joins_previous_sibling(node, parent_kind) {
+        return None;
+    }
+    let owner = previous_code_sibling(node)?;
+    let start = effective_start(owner, adapter.rules());
+    Some(token_starts.partition_point(|&token_start| token_start < start))
+}
+
+/// The named node written before `node` under the same parent, skipping comments.
+fn previous_code_sibling(node: Node) -> Option<Node> {
+    let mut current = node.prev_sibling();
+    while let Some(sibling) = current {
+        if sibling.is_named() && !sibling.is_extra() {
+            return Some(sibling);
+        }
+        current = sibling.prev_sibling();
+    }
+    None
+}
+
 /// Where a node really starts, ignoring leading attributes, decorators and comments.
 fn effective_start(node: Node, rules: &LanguageRules) -> usize {
+    match start_after_prefixes(node, rules) {
+        Some(start) => start,
+        None => node.start_byte(),
+    }
+}
+
+/// The start of the first child that is not an attribute, decorator or comment.
+/// `None` when the node has no such child.
+///
+/// A transparent child is searched the same way. Java keeps annotations and words like
+/// `public` together in one `modifiers` node: `@Override public void run()` really
+/// starts at `public`, and `@Override void run()` really starts at `void`.
+fn start_after_prefixes(node: Node, rules: &LanguageRules) -> Option<usize> {
     let mut cursor = node.walk();
-    if cursor.goto_first_child() {
-        loop {
-            let child = cursor.node();
-            if !child.is_extra() && !rules.prefix_kinds.contains(&child.kind()) {
-                return child.start_byte();
+    if !cursor.goto_first_child() {
+        return None;
+    }
+    loop {
+        let child = cursor.node();
+        let is_prefix = child.is_extra() || rules.prefix_kinds.contains(&child.kind());
+        if !is_prefix {
+            let look_inside =
+                rules.transparent_kinds.contains(&child.kind()) && child.child_count() > 0;
+            if !look_inside {
+                return Some(child.start_byte());
             }
-            if !cursor.goto_next_sibling() {
-                break;
+            if let Some(start) = start_after_prefixes(child, rules) {
+                return Some(start);
             }
         }
+        if !cursor.goto_next_sibling() {
+            return None;
+        }
     }
-    node.start_byte()
 }
 
 /// Separators directly inside a group (not inside nested brackets).

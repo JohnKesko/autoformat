@@ -102,9 +102,12 @@ impl BraceStyle {
 pub const LANGUAGE_SECTIONS: &[&str] = &[
     "rust",
     "toml",
+    "json",
     "javascript",
     "typescript",
     "csharp",
+    "java",
+    "kotlin",
     "powershell",
 ];
 
@@ -347,9 +350,12 @@ struct FormattingTable {
     continuation_indent: Option<bool>,
     rust: Option<SettingsTable>,
     toml: Option<SettingsTable>,
+    json: Option<SettingsTable>,
     javascript: Option<SettingsTable>,
     typescript: Option<SettingsTable>,
     csharp: Option<SettingsTable>,
+    java: Option<SettingsTable>,
+    kotlin: Option<SettingsTable>,
     powershell: Option<SettingsTable>,
 }
 
@@ -406,9 +412,12 @@ pub fn parse_config(text: &str) -> Result<Config, ConfigError> {
     let language_tables = [
         ("rust", table.rust),
         ("toml", table.toml),
+        ("json", table.json),
         ("javascript", table.javascript),
         ("typescript", table.typescript),
         ("csharp", table.csharp),
+        ("java", table.java),
+        ("kotlin", table.kotlin),
         ("powershell", table.powershell),
     ];
     for (language, language_table) in language_tables {
@@ -706,8 +715,8 @@ mod tests {
 
     #[test]
     fn rejects_unknown_languages_and_language_options() {
-        let error = parse_config("[formatting.java]\nbrace_style = \"allman\"\n").unwrap_err();
-        assert!(error.message.contains("java"), "{}", error.message);
+        let error = parse_config("[formatting.python]\nbrace_style = \"allman\"\n").unwrap_err();
+        assert!(error.message.contains("python"), "{}", error.message);
         let error = parse_config("[formatting.csharp]\nquote_style = \"double\"\n").unwrap_err();
         assert!(error.message.contains("quote_style"), "{}", error.message);
         // Language tables cannot contain other language tables.

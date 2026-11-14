@@ -22,7 +22,7 @@ use autoformat_core::{format_source, LanguageAdapter};
 use autoformat_languages::Languages;
 
 const HELP: &str = "\
-AutoFormat - one formatter for Rust, TOML, TypeScript, JavaScript, C# and PowerShell
+AutoFormat - one formatter for Rust, TOML, JSON, TypeScript, JavaScript, C#, Java, Kotlin and PowerShell
 
 USAGE:
     autoformat format [OPTIONS] [PATHS...]   Format files or directories in place

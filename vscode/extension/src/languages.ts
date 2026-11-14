@@ -3,11 +3,15 @@
 export const LANGUAGE_NAMES: { [languageId: string]: string } = {
     rust: "rust",
     toml: "toml",
+    json: "json",
+    jsonc: "json",
     javascript: "javascript",
     javascriptreact: "javascript",
     typescript: "typescript",
     typescriptreact: "tsx",
     csharp: "csharp",
+    java: "java",
+    kotlin: "kotlin",
     powershell: "powershell",
 };
 

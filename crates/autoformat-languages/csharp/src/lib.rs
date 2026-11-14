@@ -7,8 +7,11 @@
 //! - `class A : B` and `where T : class` keep a space before the colon.
 //! - Null-conditional access `a?.b` has no spaces.
 //! - Interpolated, verbatim and raw strings are never changed.
+//! - Array and collection lists in braces (`new[] { 1, 2, 3 }`) follow `column_width`
+//!   like lists in `( )`. Object initializers (`new A { X = 1 }`) keep their lines.
 
 use autoformat_core::{LanguageAdapter, LanguageRules, Spacing, TokenContext};
+use autoformat_parser::tree_sitter::Node;
 use autoformat_parser::Grammar;
 
 pub struct CSharpLanguage {
@@ -165,6 +168,21 @@ impl LanguageAdapter for CSharpLanguage {
 
     fn rules(&self) -> &LanguageRules {
         &RULES
+    }
+
+    fn is_array_in_braces(&self, list_node: Node) -> bool {
+        // `{ 1, 2, 3 }` after `new[]`, `new List<int>` or `int[] a =`. An object
+        // initializer (`new A { X = 1 }`) has assignments inside and is not an array.
+        if list_node.kind() != "initializer_expression" {
+            return false;
+        }
+        let mut cursor = list_node.walk();
+        for child in list_node.children(&mut cursor) {
+            if child.kind() == "assignment_expression" {
+                return false;
+            }
+        }
+        true
     }
 
     fn column_zero(&self, token: &TokenContext) -> bool {
