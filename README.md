@@ -240,7 +240,7 @@ Good to know:
 - The extension downloads the `autoformat` program from this project's GitHub releases, and updates it the same way.
 - For TOML, C#, Java, Kotlin and PowerShell you also need Zed's extension for that language.
 - A file with a syntax error is not changed. A mistake in `autoformat.toml` is shown as a message.
-- The help while editing `autoformat.toml` needs an `autoformat` release newer than 0.1.4.
+- The help while editing `autoformat.toml` needs `autoformat` 0.1.5 or newer.
 - Zed handles line endings itself, so `line_ending` is not used in Zed.
 - Zed removes spaces at the end of lines on save. To keep them, also set `"remove_trailing_whitespace_on_save": false`.
 

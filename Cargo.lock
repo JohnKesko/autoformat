@@ -19,7 +19,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-cli"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-config",
  "autoformat-core",
@@ -35,14 +35,14 @@ dependencies = [
 
 [[package]]
 name = "autoformat-config"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "toml",
 ]
 
 [[package]]
 name = "autoformat-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-config",
  "autoformat-parser",
@@ -50,7 +50,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-lang-csharp"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-parser",
@@ -59,7 +59,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-lang-java"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-parser",
@@ -68,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-lang-javascript"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-parser",
@@ -77,7 +77,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-lang-json"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-parser",
@@ -86,7 +86,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-lang-kotlin"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-parser",
@@ -95,7 +95,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-lang-powershell"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-parser",
@@ -104,7 +104,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-lang-rust"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-parser",
@@ -113,7 +113,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-lang-toml"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-parser",
@@ -122,7 +122,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-lang-typescript"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-lang-javascript",
@@ -132,7 +132,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-languages"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "autoformat-core",
  "autoformat-lang-csharp",
@@ -148,7 +148,7 @@ dependencies = [
 
 [[package]]
 name = "autoformat-parser"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "tree-sitter",
 ]
