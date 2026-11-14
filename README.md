@@ -570,7 +570,7 @@ The Zed extension itself (`zed/extension`) has its own version, in `zed/extensio
 [autoformat]
 submodule = "extensions/autoformat"
 path = "zed/extension"
-version = "0.1.0"
+version = "0.1.1"
 ```
 
 The first `autoformat` release that can be used by Zed is the one after 0.1.2, so publish that release before the Zed extension.

@@ -2,7 +2,7 @@
   "name": "autoformat",
   "displayName": "AutoFormat",
   "description": "One formatter for Rust, TOML, JSON, TypeScript, JavaScript, C#, Java, Kotlin and PowerShell. No other tools needed.",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "JohnK",
   "license": "MIT",
   "icon": "img/icon.png",

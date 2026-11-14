@@ -1,7 +1,7 @@
 id = "autoformat"
 name = "AutoFormat"
 description = "One formatter for Rust, TOML, JSON, TypeScript, JavaScript, C#, Java, Kotlin and PowerShell. No other tools needed."
-version = "0.1.0"
+version = "0.1.1"
 schema_version = 1
 authors = ["AutoFormat contributors"]
 repository = "https://github.com/JohnKesko/autoformat"

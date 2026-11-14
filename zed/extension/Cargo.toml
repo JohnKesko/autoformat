@@ -1,7 +1,7 @@
 [package]
 name = "autoformat-zed"
 description = "The AutoFormat extension for the Zed editor."
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT"
 publish = false
