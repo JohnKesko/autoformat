@@ -41,7 +41,6 @@ autoformat-lang-kotlin = { path = "crates/autoformat-languages/kotlin" }
 autoformat-lang-powershell = { path = "crates/autoformat-languages/powershell" }
 
 # Third-party crates. All are MIT or MIT/Apache-2.0 licensed (see THIRD_PARTY_LICENSES.md).
-serde = { version = "1.0", features = ["derive"] }
 toml = "1.2"
 # Only for `autoformat lsp`: the messages editors send are JSON.
 serde_json = "1.0"

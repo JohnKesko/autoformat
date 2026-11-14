@@ -65,6 +65,12 @@ continuation_indent = false
 | `trim_trailing_whitespace` | `true`, `false` | Remove spaces and tabs at the end of lines |
 | `continuation_indent` | `true`, `false` | Push in a block in the middle of a statement (PowerShell only) |
 
+VS Code and Zed help you while you edit `autoformat.toml`:
+
+- A mistake is underlined as you type: an unknown setting or language, a value that is not allowed, a setting written twice. The message says what is allowed.
+- Setting names, their allowed values and the language names are suggested while you type.
+- Point at a setting to see what it does, its allowed values and its default.
+
 You can change any setting and change it back later. The result is always the same as before, so you are never stuck with an earlier choice. One exception: spaces at the end of lines that were already removed can't come back.
 
 ### One language different
@@ -203,6 +209,7 @@ Get-Process | ForEach-Object {
 - Files are formatted when you save. To turn that off, set `"autoformat.formatOnSave": false`.
 - Other formatters are not turned off. If another one also formats on save, both run.
 - Errors (like a syntax error) show up in the status bar. Your file is not changed.
+- TOML files get colours from the extension itself, so no other extension is needed.
 
 For Format Document (`Shift+Alt+F`), VS Code picks the formatter. To always use AutoFormat:
 
@@ -233,6 +240,7 @@ Good to know:
 - The extension downloads the `autoformat` program from this project's GitHub releases, and updates it the same way.
 - For TOML, C#, Java, Kotlin and PowerShell you also need Zed's extension for that language.
 - A file with a syntax error is not changed. A mistake in `autoformat.toml` is shown as a message.
+- The help while editing `autoformat.toml` needs an `autoformat` release newer than 0.1.4.
 - Zed handles line endings itself, so `line_ending` is not used in Zed.
 - Zed removes spaces at the end of lines on save. To keep them, also set `"remove_trailing_whitespace_on_save": false`.
 
@@ -260,7 +268,7 @@ No administrator rights are needed. To pick the folder or the version, set `AUTO
 | `autoformat config` | Shows which settings are used and where they come from |
 | `autoformat languages` | Lists the languages and file types |
 | `autoformat upgrade` | Installs a newer version, after asking. `--check` only looks. |
-| `autoformat lsp` | Runs as a language server that only formats (used by Zed) |
+| `autoformat lsp` | Runs as a language server: it formats, and helps while `autoformat.toml` is edited (used by Zed and VS Code) |
 
 ## Notes per language
 

@@ -8,6 +8,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 import { ensureExecutable, resolveExecutable } from "./binary";
+import { registerConfigHelp } from "./configEditor";
 import { autoformatLanguage, formatArguments, SUPPORTED_LANGUAGE_IDS } from "./languages";
 import { runAutoformat } from "./runner";
 
@@ -51,6 +52,9 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand("autoformat.showOutput", () => output.show())
     );
+
+    // Marks, suggestions and explanations while autoformat.toml is edited.
+    registerConfigHelp(context, findExecutable);
 }
 
 export function deactivate(): void {
@@ -85,27 +89,15 @@ async function formatDocument(
         return [];
     }
 
-    const settings = vscode.workspace.getConfiguration("autoformat", document);
-    const resolved = resolveExecutable(
-        extensionPath,
-        settings.get<string>("executablePath", ""),
-        process.platform,
-        process.arch,
-        (file) => fs.existsSync(file)
-    );
-    if (typeof resolved === "string") {
-        reportError(resolved, !reportedMissingBinary);
-        reportedMissingBinary = true;
+    const executable = findExecutable(document);
+    if (executable === undefined) {
         return [];
-    }
-    if (resolved.source === "bundled") {
-        ensureExecutable(resolved.path, process.platform);
     }
 
     const original = document.getText();
     let result;
     try {
-        result = await runAutoformat(resolved.path, formatArguments(language, documentPath(document)), original, TIMEOUT_MS);
+        result = await runAutoformat(executable, formatArguments(language, documentPath(document)), original, TIMEOUT_MS);
     } catch (error) {
         reportError("Could not run autoformat: " + String(error), false);
         return [];
@@ -137,6 +129,27 @@ async function formatDocument(
         edits.push(vscode.TextEdit.setEndOfLine(vscode.EndOfLine.LF));
     }
     return edits;
+}
+
+/** The autoformat program to run. When there is none, the reason is reported and nothing is returned. */
+function findExecutable(document: vscode.TextDocument): string | undefined {
+    const settings = vscode.workspace.getConfiguration("autoformat", document);
+    const resolved = resolveExecutable(
+        extensionPath,
+        settings.get<string>("executablePath", ""),
+        process.platform,
+        process.arch,
+        (file) => fs.existsSync(file)
+    );
+    if (typeof resolved === "string") {
+        reportError(resolved, !reportedMissingBinary);
+        reportedMissingBinary = true;
+        return undefined;
+    }
+    if (resolved.source === "bundled") {
+        ensureExecutable(resolved.path, process.platform);
+    }
+    return resolved.path;
 }
 
 /**

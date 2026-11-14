@@ -10,6 +10,7 @@
 //! autoformat upgrade [--check] [--yes]
 //! ```
 
+mod config_help;
 mod lsp;
 mod upgrade;
 

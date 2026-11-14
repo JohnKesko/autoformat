@@ -4,11 +4,17 @@
 //! editor starts `autoformat lsp`, tells it the text of every open document, and asks it
 //! to format one. The answer is a single edit that replaces the whole document.
 //!
-//! Only what formatting needs is implemented:
+//! Files named `autoformat.toml` also get help while they are edited: marks on mistakes,
+//! suggestions and explanations (see `config_help.rs`). No other file gets those.
+//!
+//! This is what is implemented:
 //! - `initialize`, `shutdown` and `exit`,
 //! - `textDocument/didOpen`, `textDocument/didChange` and `textDocument/didClose`
 //!   (the editor is asked to always send the full text),
-//! - `textDocument/formatting`.
+//! - `textDocument/formatting`,
+//! - for `autoformat.toml` only: `textDocument/publishDiagnostics` (the marks),
+//!   `textDocument/completion` (the suggestions) and `textDocument/hover` (the
+//!   explanations).
 //!
 //! Messages are JSON. Each one comes after a `Content-Length` header, on standard input
 //! and standard output. Nothing else is ever written to standard output.
@@ -24,6 +30,8 @@ use autoformat_config::discover_config;
 use autoformat_core::{format_source, LanguageAdapter};
 use autoformat_languages::Languages;
 use serde_json::{json, Value};
+
+use crate::config_help;
 
 /// Error codes from the JSON-RPC and Language Server Protocol specifications.
 const PARSE_ERROR: i64 = -32700;
@@ -219,6 +227,8 @@ impl Server {
                 vec![reply(id, Value::Null)]
             }
             "textDocument/formatting" => self.format(id, params),
+            "textDocument/completion" => self.suggest(id, params),
+            "textDocument/hover" => self.explain(id, params),
             _ => vec![error_reply(
                 id,
                 METHOD_NOT_FOUND,
@@ -230,9 +240,9 @@ impl Server {
     /// Notifications have no `id` and get no answer. Unknown ones are ignored.
     fn handle_notification(&mut self, method: &str, params: &Value) -> Vec<Value> {
         match method {
-            "textDocument/didOpen" => self.open(params),
+            "textDocument/didOpen" => return self.open(params),
             "textDocument/didChange" => return self.change(params),
-            "textDocument/didClose" => self.close(params),
+            "textDocument/didClose" => return self.close(params),
             "exit" => {
                 // Leaving without `shutdown` first counts as a failure.
                 let code = if self.shutdown_requested { 0 } else { 1 };
@@ -243,7 +253,7 @@ impl Server {
         Vec::new()
     }
 
-    fn open(&mut self, params: &Value) {
+    fn open(&mut self, params: &Value) -> Vec<Value> {
         let document = &params["textDocument"];
         let uri = document["uri"].as_str();
         let text = document["text"].as_str();
@@ -256,7 +266,9 @@ impl Server {
                     text: text.to_string(),
                 },
             );
+            return self.marks(uri);
         }
+        Vec::new()
     }
 
     fn change(&mut self, params: &Value) -> Vec<Value> {
@@ -297,13 +309,81 @@ impl Server {
                 )];
             }
         }
+        self.marks(uri)
+    }
+
+    fn close(&mut self, params: &Value) -> Vec<Value> {
+        if let Some(uri) = params["textDocument"]["uri"].as_str() {
+            // A closed `autoformat.toml` has no text any more, which takes its marks away.
+            self.documents.remove(uri);
+            return self.marks(uri);
+        }
         Vec::new()
     }
 
-    fn close(&mut self, params: &Value) {
-        if let Some(uri) = params["textDocument"]["uri"].as_str() {
-            self.documents.remove(uri);
+    /// The text of an open document, but only when it is an `autoformat.toml`. Other
+    /// documents, such as `Cargo.toml`, get no marks, suggestions or explanations.
+    fn config_text(&self, uri: &str) -> Option<&str> {
+        if !self.is_config_file(uri) {
+            return None;
         }
+        let document = self.documents.get(uri)?;
+        Some(&document.text)
+    }
+
+    fn is_config_file(&self, uri: &str) -> bool {
+        let path = document_path(uri, self.root.as_deref());
+        config_help::is_config_file(&path)
+    }
+
+    /// Tells the editor which mistakes an `autoformat.toml` has right now. The new list
+    /// replaces the old one, so marks appear and go away as the user types.
+    fn marks(&self, uri: &str) -> Vec<Value> {
+        if !self.is_config_file(uri) {
+            return Vec::new();
+        }
+        let marks = match self.config_text(uri) {
+            Some(text) => config_help::marks(text),
+            None => Vec::new(),
+        };
+        vec![json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": { "uri": uri, "diagnostics": marks },
+        })]
+    }
+
+    /// Answers `textDocument/completion` with the suggestions at the cursor, or with
+    /// `null` for documents that are not an `autoformat.toml`.
+    fn suggest(&self, id: &Value, params: &Value) -> Vec<Value> {
+        let answer = match self.config_text_and_place(params) {
+            Some((text, line, character)) => {
+                json!(config_help::suggestions(text, line, character))
+            }
+            None => Value::Null,
+        };
+        vec![reply(id, answer)]
+    }
+
+    /// Answers `textDocument/hover` with the explanation of the setting under the
+    /// pointer, or with `null` when there is nothing to explain.
+    fn explain(&self, id: &Value, params: &Value) -> Vec<Value> {
+        let answer = match self.config_text_and_place(params) {
+            Some((text, line, character)) => {
+                config_help::explanation(text, line, character).unwrap_or(Value::Null)
+            }
+            None => Value::Null,
+        };
+        vec![reply(id, answer)]
+    }
+
+    /// The text of the `autoformat.toml` a request is about, and the place in it.
+    fn config_text_and_place(&self, params: &Value) -> Option<(&str, usize, usize)> {
+        let uri = params["textDocument"]["uri"].as_str()?;
+        let text = self.config_text(uri)?;
+        let line = params["position"]["line"].as_u64()?;
+        let character = params["position"]["character"].as_u64()?;
+        Some((text, line as usize, character as usize))
     }
 
     /// Answers `textDocument/formatting` with one edit that replaces the whole document,
@@ -384,6 +464,8 @@ fn initialize_result() -> Value {
         "capabilities": {
             "textDocumentSync": { "openClose": true, "change": SYNC_FULL },
             "documentFormattingProvider": true,
+            "completionProvider": { "triggerCharacters": config_help::SUGGESTION_TRIGGERS },
+            "hoverProvider": true,
         },
         "serverInfo": { "name": "autoformat", "version": env!("CARGO_PKG_VERSION") },
     })
@@ -679,6 +761,11 @@ mod tests {
             result["capabilities"]["textDocumentSync"],
             json!({ "openClose": true, "change": 1 })
         );
+        assert_eq!(result["capabilities"]["hoverProvider"], json!(true));
+        assert_eq!(
+            result["capabilities"]["completionProvider"]["triggerCharacters"],
+            json!(["[", ".", "=", "\"", "'"])
+        );
         assert_eq!(result["serverInfo"]["name"], json!("autoformat"));
         assert_eq!(
             result["serverInfo"]["version"],
@@ -966,6 +1053,175 @@ mod tests {
         }
     }
 
+    fn close(uri: &str) -> Value {
+        notification(
+            "textDocument/didClose",
+            json!({ "textDocument": { "uri": uri } }),
+        )
+    }
+
+    /// A request about one place in a document: `textDocument/completion` or
+    /// `textDocument/hover`.
+    fn ask_at(id: u32, method: &str, uri: &str, line: u32, character: u32) -> Value {
+        request(
+            id,
+            method,
+            json!({ "textDocument": { "uri": uri }, "position": { "line": line, "character": character } }),
+        )
+    }
+
+    /// The labels of the suggestions in the answer to the request with this id.
+    fn labels(messages: &[Value], id: u32) -> Vec<String> {
+        let items = answer(messages, id)["result"].as_array().unwrap();
+        items
+            .iter()
+            .map(|item| item["label"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn an_autoformat_toml_gets_marks_that_follow_the_text() {
+        let uri = "file:///project/autoformat.toml";
+        let (_, messages) = talk(&[
+            open(uri, "toml", "[formatting]\nindent_size = 99\n"),
+            change(uri, "[formatting]\nindent_size = 9\n"),
+            change(uri, "[formatting]\nindent_sise = 9\n"),
+            close(uri),
+        ]);
+        // Every message from the server is a list of marks for this document.
+        let marks = sent(&messages, "textDocument/publishDiagnostics");
+        assert_eq!(marks.len(), 4);
+        assert_eq!(messages.len(), 4);
+        for mark in &marks {
+            assert_eq!(mark["params"]["uri"], json!(uri));
+        }
+        // Opened with a number that is too large: one mark, exactly on the number.
+        assert_eq!(
+            marks[0]["params"]["diagnostics"],
+            json!([{
+                "range": {
+                    "start": { "line": 1, "character": 14 },
+                    "end": { "line": 1, "character": 16 },
+                },
+                "severity": 1,
+                "source": "autoformat",
+                "message": "`indent_size` must be a whole number from 1 to 16, found 99",
+            }])
+        );
+        // Fixed: the mark goes away.
+        assert_eq!(marks[1]["params"]["diagnostics"], json!([]));
+        // A new mistake: a new mark, on the name this time.
+        let diagnostics = marks[2]["params"]["diagnostics"].as_array().unwrap();
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(
+            diagnostics[0]["range"]["end"],
+            json!({ "line": 1, "character": 11 })
+        );
+        assert!(diagnostics[0]["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("unknown setting `indent_sise`"));
+        // Closed: no marks are left behind.
+        assert_eq!(marks[3]["params"]["diagnostics"], json!([]));
+    }
+
+    #[test]
+    fn suggests_and_explains_in_an_autoformat_toml() {
+        let uri = "file:///project/autoformat.toml";
+        let text = "[formatting]\nindent_size = 2\nbrace_style = \n\n[formatting.\n";
+        let (_, messages) = talk(&[
+            open(uri, "toml", text),
+            ask_at(1, "textDocument/completion", uri, 2, 14),
+            ask_at(2, "textDocument/completion", uri, 3, 0),
+            ask_at(3, "textDocument/completion", uri, 4, 12),
+            ask_at(4, "textDocument/hover", uri, 1, 4),
+            ask_at(5, "textDocument/hover", uri, 0, 3),
+        ]);
+        // After `brace_style = `: its three values.
+        assert_eq!(
+            labels(&messages, 1),
+            ["\"same_line\"", "\"allman\"", "\"gnu\""]
+        );
+        // On an empty line of [formatting]: the settings that are not written yet.
+        let names = labels(&messages, 2);
+        assert!(names.contains(&"column_width".to_string()));
+        assert!(!names.contains(&"indent_size".to_string()));
+        assert!(!names.contains(&"brace_style".to_string()));
+        // After `[formatting.`: the languages.
+        let tables = labels(&messages, 3);
+        assert!(tables.contains(&"formatting.csharp".to_string()));
+        assert!(!tables.contains(&"formatting".to_string()));
+        // Pointing at `indent_size` explains it; pointing at `[formatting]` does not.
+        let explanation = answer(&messages, 4)["result"]["contents"]["value"]
+            .as_str()
+            .unwrap();
+        assert!(
+            explanation.starts_with("**indent_size**\n\nHow deep one indentation step is."),
+            "{}",
+            explanation
+        );
+        assert!(
+            explanation.ends_with("Allowed: a whole number from 1 to 16. Default: 4."),
+            "{}",
+            explanation
+        );
+        assert_eq!(answer(&messages, 5)["result"], Value::Null);
+    }
+
+    #[test]
+    fn other_toml_files_get_no_marks_suggestions_or_explanations() {
+        // The same text would get all three in a file named autoformat.toml.
+        let text = "[formatting]\nindent_size = 99\nbra\n";
+        for uri in [
+            "file:///project/Cargo.toml",
+            "file:///project/my-autoformat.toml",
+            "untitled:Untitled-1",
+        ] {
+            let (_, messages) = talk(&[
+                open(uri, "toml", text),
+                change(uri, text),
+                ask_at(1, "textDocument/completion", uri, 2, 3),
+                ask_at(2, "textDocument/hover", uri, 1, 3),
+                close(uri),
+            ]);
+            assert_eq!(messages.len(), 2, "{}", uri);
+            assert_eq!(answer(&messages, 1)["result"], Value::Null, "{}", uri);
+            assert_eq!(answer(&messages, 2)["result"], Value::Null, "{}", uri);
+        }
+    }
+
+    #[test]
+    fn questions_about_an_autoformat_toml_that_is_not_open_get_an_empty_answer() {
+        let uri = "file:///project/autoformat.toml";
+        let (_, messages) = talk(&[
+            ask_at(1, "textDocument/completion", uri, 0, 0),
+            ask_at(2, "textDocument/hover", uri, 0, 0),
+            request(3, "textDocument/completion", json!({})),
+            open(uri, "toml", "[formatting]\n"),
+            request(
+                4,
+                "textDocument/hover",
+                json!({ "textDocument": { "uri": uri } }),
+            ),
+        ]);
+        for id in 1..=4 {
+            assert_eq!(answer(&messages, id)["result"], Value::Null, "{}", id);
+        }
+    }
+
+    #[test]
+    fn formatting_an_autoformat_toml_still_works() {
+        let uri = "file:///nowhere/autoformat.toml";
+        let (_, messages) = talk(&[
+            open(uri, "toml", "[formatting]\nindent_size=2\n"),
+            format(1, uri),
+        ]);
+        assert_eq!(
+            answer(&messages, 1)["result"][0]["newText"],
+            json!("[formatting]\nindent_size = 2\n")
+        );
+    }
+
     #[test]
     fn shutdown_then_exit_ends_with_success() {
         let (code, messages) = talk(&[
@@ -1008,7 +1264,7 @@ mod tests {
                 "workspace/didChangeConfiguration",
                 json!({ "settings": {} }),
             ),
-            request(7, "textDocument/hover", json!({})),
+            request(7, "textDocument/definition", json!({})),
             json!({ "jsonrpc": "2.0", "id": 99, "result": null }),
         ]);
         assert_eq!(messages.len(), 1);

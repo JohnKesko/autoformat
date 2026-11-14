@@ -39,6 +39,7 @@ Save a file. It is formatted.
 - The extension downloads the `autoformat` program from this project's GitHub releases. You need a release newer than 0.1.2. JSON, Java and Kotlin need release 0.1.4 or newer.
 - For TOML, C#, Java, Kotlin and PowerShell you also need Zed's extension for that language.
 - A file with a syntax error is not changed.
+- While you edit `autoformat.toml`, mistakes are underlined, settings and their allowed values are suggested, and pointing at a setting explains it. Other TOML files are left alone. This needs an `autoformat` release newer than 0.1.4.
 
 ## Use your own autoformat program
 

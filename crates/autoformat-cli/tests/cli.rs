@@ -286,6 +286,138 @@ fn lsp_mode_formats_documents_for_an_editor() {
     assert!(stdout.contains(r#""line":3"#), "{}", stdout);
 }
 
+/// Splits what `autoformat lsp` wrote into its messages.
+fn lsp_answers(stdout: &str) -> Vec<String> {
+    let mut answers = Vec::new();
+    let mut rest = stdout;
+    while let Some(after_header) = rest.strip_prefix("Content-Length: ") {
+        let (length, body) = after_header.split_once("\r\n\r\n").unwrap();
+        let length: usize = length.parse().unwrap();
+        answers.push(body[..length].to_string());
+        rest = &body[length..];
+    }
+    assert!(rest.is_empty(), "{}", rest);
+    answers
+}
+
+#[test]
+fn lsp_mode_helps_while_autoformat_toml_is_edited() {
+    // A half-written file: a number that is too large, a value that is not typed yet,
+    // and the start of a name.
+    let uri = "file:///project/autoformat.toml";
+    let text = r#"[formatting]\nindent_size = 99\nbrace_style = \nco"#;
+    let at = |id: u32, method: &str, line: u32, character: u32| {
+        lsp_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":{},"method":"{}","params":{{"textDocument":{{"uri":"{}"}},"position":{{"line":{},"character":{}}}}}}}"#,
+            id, method, uri, line, character
+        ))
+    };
+
+    let mut input = String::new();
+    input.push_str(&lsp_message(
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
+    ));
+    input.push_str(&lsp_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{}","languageId":"toml","version":1,"text":"{}"}}}}}}"#,
+        uri, text
+    )));
+    // Suggestions after `brace_style = ` and after `co`, then an explanation of
+    // `indent_size`.
+    input.push_str(&at(2, "textDocument/completion", 2, 14));
+    input.push_str(&at(3, "textDocument/completion", 3, 2));
+    input.push_str(&at(4, "textDocument/hover", 1, 3));
+    // A Cargo.toml with the same text gets nothing.
+    input.push_str(&lsp_message(&format!(
+        r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"file:///project/Cargo.toml","languageId":"toml","version":1,"text":"{}"}}}}}}"#,
+        text
+    )));
+    input.push_str(&lsp_message(
+        r#"{"jsonrpc":"2.0","id":5,"method":"shutdown"}"#,
+    ));
+    input.push_str(&lsp_message(r#"{"jsonrpc":"2.0","method":"exit"}"#));
+
+    let (code, stdout, stderr) = run_with_stdin(&["lsp"], &input);
+    assert_eq!(code, 0, "{}", stderr);
+    assert!(stderr.is_empty(), "{}", stderr);
+    let answers = lsp_answers(&stdout);
+    // initialize, the marks, two lists of suggestions, the explanation, shutdown.
+    assert_eq!(answers.len(), 6, "{}", stdout);
+    assert!(
+        answers[0].contains(r#""hoverProvider":true"#),
+        "{}",
+        answers[0]
+    );
+    assert!(
+        answers[0].contains(r#""completionProvider""#),
+        "{}",
+        answers[0]
+    );
+
+    // The marks: on `99` (line 1, characters 14 to 16) and on the unfinished places.
+    let marks = &answers[1];
+    assert!(
+        marks.contains(r#""method":"textDocument/publishDiagnostics""#),
+        "{}",
+        marks
+    );
+    assert!(
+        marks.contains(r#""uri":"file:///project/autoformat.toml""#),
+        "{}",
+        marks
+    );
+    assert!(
+        marks
+            .contains(r#""message":"`indent_size` must be a whole number from 1 to 16, found 99""#),
+        "{}",
+        marks
+    );
+    assert!(
+        marks.contains(
+            r#""range":{"end":{"character":16,"line":1},"start":{"character":14,"line":1}}"#
+        ),
+        "{}",
+        marks
+    );
+    assert_eq!(marks.matches(r#""message""#).count(), 3, "{}", marks);
+    assert!(!stdout.contains("Cargo.toml"), "{}", stdout);
+
+    // The values of brace_style.
+    for value in [
+        r#""label":"\"same_line\"""#,
+        r#""label":"\"allman\"""#,
+        r#""label":"\"gnu\"""#,
+    ] {
+        assert!(answers[2].contains(value), "{}", answers[2]);
+    }
+    // The settings that are left. `indent_size` and `brace_style` are already written.
+    assert!(
+        answers[3].contains(r#""label":"column_width""#),
+        "{}",
+        answers[3]
+    );
+    assert!(
+        answers[3].contains(r#""label":"continuation_indent""#),
+        "{}",
+        answers[3]
+    );
+    assert!(
+        !answers[3].contains(r#""label":"indent_size""#),
+        "{}",
+        answers[3]
+    );
+    assert!(
+        !answers[3].contains(r#""label":"brace_style""#),
+        "{}",
+        answers[3]
+    );
+    // The explanation of indent_size.
+    assert!(
+        answers[4].contains(r#"**indent_size**\n\nHow deep one indentation step is.\n\nAllowed: a whole number from 1 to 16. Default: 4."#),
+        "{}",
+        answers[4]
+    );
+}
+
 #[test]
 fn lsp_mode_accepts_stdio_and_refuses_other_options() {
     let exit = lsp_message(r#"{"jsonrpc":"2.0","method":"exit"}"#);

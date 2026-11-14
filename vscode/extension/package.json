@@ -60,6 +60,13 @@
         ]
       }
     ],
+    "grammars": [
+      {
+        "language": "toml",
+        "scopeName": "source.toml",
+        "path": "./syntaxes/toml.tmLanguage.json"
+      }
+    ],
     "configuration": {
       "title": "AutoFormat",
       "properties": {

@@ -6,7 +6,8 @@ schema_version = 1
 authors = ["AutoFormat contributors"]
 repository = "https://github.com/JohnKesko/autoformat"
 
-# Zed formats through language servers. This one only formats.
+# Zed formats through language servers. This one formats, and helps while
+# `autoformat.toml` is edited (marks on mistakes, suggestions and explanations).
 [language_servers.autoformat]
 name = "AutoFormat"
 languages = ["Rust", "TOML", "JSON", "JSONC", "JavaScript", "TypeScript", "TSX", "CSharp", "Java", "Kotlin", "PowerShell"]
